@@ -1,0 +1,195 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+model Supplier { 
+  id Int @id @default(autoincrement())
+  first_name String? 
+  last_name String? 
+  business_name String? 
+  email String? 
+  phone String? 
+  address String? 
+  supplier_type SupplierType
+  transactions Transaction[] //One to many relationships with transactions
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+}
+model Customer {
+  id Int @id @default(autoincrement())
+  first_name String?
+  last_name String?
+  business_name String?
+  email String?
+  phone String?
+  address String?
+  customer_type CustomerType @default(individual)
+  transactionItems Transaction[] //One to many relationships with transactions
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+}
+model RawMaterials { 
+  id Int @id @default(autoincrement())
+  name String
+  description String?
+  transactionItems TransactionItems[]
+  unit_id      Int?     // Foreign key
+  unit        Unit?    @relation(fields: [unit_id], references: [id])
+  reorder_point Int?
+  bom_list BillOfMaterialsList[]
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+}
+model Product {
+  id Int @id @default(autoincrement())
+  name String 
+  unit_id  Int?     // Foreign key
+  unit  Unit?    @relation(fields: [unit_id], references: [id])
+  selling_price Int @default(0)
+  description String? 
+  sku String? @unique()
+  product_sizes ProductSize[]
+  bom BillOfMaterials[]
+  created_at DateTime @default(now()) 
+  updated_at DateTime @updatedAt
+}
+model Size {
+  id Int @id @default(autoincrement())
+  name String
+  size ProductSize[]
+  created_at DateTime @default(now()) 
+  updated_at DateTime @updatedAt
+}
+model ProductSize {
+  id Int @id @default(autoincrement())
+  product_id Int?
+  size_id Int?
+  sizes Size? @relation(fields: [size_id], references: [id])
+  transactions TransactionItems[] //One to many relationships with transactions 
+  products Product? @relation(fields: [product_id], references: [id])
+}
+
+model Color {
+  id Int @id @default(autoincrement())
+  name String
+  colors TransactionItems[]
+  created_at DateTime @default(now()) 
+  updated_at DateTime @updatedAt
+}
+model Unit { 
+  id Int @id @default(autoincrement())
+  name String
+  description String?
+  symbol String
+  rawMaterials RawMaterials[]
+  products Product[] 
+  created_at DateTime @default(now()) 
+  updated_at DateTime @updatedAt
+}
+model Transaction {
+  id Int @id @default(autoincrement())
+  transaction_type TransactionType
+  customer_id Int? //Foreign key for customer
+  supplier_id Int?
+  transaction_date DateTime
+  sale_status SalesStatus?
+  manufacturing_status ManufacturingStatus?
+  manufaction_costs ManufacturingCostTransaction[]
+  transaction_items TransactionItems[]
+  customer Customer? @relation(fields: [customer_id], references: [id])
+  supplier Supplier? @relation(fields: [supplier_id], references: [id])
+  created_at DateTime @default(now()) 
+  updated_at DateTime @updatedAt
+}
+model ManufacturingCost {
+  id Int @id @default(autoincrement())
+  name String
+  manufacturing_transaction_costs ManufacturingCostTransaction[]
+}
+model ManufacturingCostTransaction { 
+  id Int @id @default(autoincrement())
+  cost Int
+  cost_name_id Int
+  manufacturing_cost_id Int?
+  cost_name ManufacturingCost @relation(fields: [cost_name_id], references: [id])
+  manufacturing_cost_transaction Transaction? @relation(fields: [manufacturing_cost_id], references: [id])
+  created_at DateTime @default(now()) 
+  updated_at DateTime @updatedAt
+}
+model TransactionItems {
+  id Int @id @default(autoincrement())
+  quantity Int
+  remaining_quantity Int
+  cost Int
+  material_id Int? //Foreign key for raw material
+  product_size_id Int? //Foreign key for product 
+  color_id Int?
+  transaction_id Int
+  transactions Transaction? @relation(fields: [transaction_id], references: [id])
+  product_size ProductSize? @relation(fields: [product_size_id], references: [id])
+  raw_material RawMaterials? @relation(fields: [material_id], references: [id])
+  color Color? @relation(fields: [color_id], references: [id])
+  created_at DateTime @default(now()) 
+  updated_at DateTime @updatedAt
+}
+model BillOfMaterials {
+    id Int @id @default(autoincrement())
+    product_id Int
+    quantity Int 
+    bom_date DateTime
+    bom_list BillOfMaterialsList[]
+    product Product @relation(fields: [product_id], references: [id])
+    created_at DateTime @default(now()) 
+    updated_at DateTime @updatedAt
+}
+model BillOfMaterialsList {
+  id Int @id @default(autoincrement())
+  bom_id Int 
+  material_id Int 
+  quantity Int 
+  bom BillOfMaterials @relation(fields: [bom_id], references: [id])
+  material RawMaterials @relation(fields: [material_id], references: [id])
+  created_at DateTime @default(now()) 
+  updated_at DateTime @updatedAt
+}
+
+enum TransactionType {
+  purchase
+  sale 
+  adjustment
+  opening_stock 
+  production
+}
+
+enum CustomerType {
+  business
+  individual
+}
+enum SupplierType { 
+  business
+  individual
+}
+
+enum SalesStatus {
+  pending 
+  processing
+  fullfilled
+}
+enum ManufacturingStatus {
+  cutting
+  sticking
+  lasting
+  finishing
+  delivery
+}
