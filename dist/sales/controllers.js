@@ -206,16 +206,20 @@ function getSalesOrder(req, res) {
                 id: getSale === null || getSale === void 0 ? void 0 : getSale.id,
                 orderDate: getSale === null || getSale === void 0 ? void 0 : getSale.transaction_date,
                 products: getSale === null || getSale === void 0 ? void 0 : getSale.transaction_items.map(transactionItem => {
-                    var _a, _b, _c, _d, _e, _f, _g;
+                    var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m;
                     return ({
                         productId: (_b = (_a = transactionItem.product_size) === null || _a === void 0 ? void 0 : _a.products) === null || _b === void 0 ? void 0 : _b.id,
                         productName: (_d = (_c = transactionItem.product_size) === null || _c === void 0 ? void 0 : _c.products) === null || _d === void 0 ? void 0 : _d.name,
                         colorName: (_e = transactionItem.color) === null || _e === void 0 ? void 0 : _e.name,
+                        colorId: (_f = transactionItem.color) === null || _f === void 0 ? void 0 : _f.id,
                         quantity: transactionItem.quantity,
                         cost: transactionItem.cost,
-                        rawMaterials: (_g = (_f = transactionItem.product_size) === null || _f === void 0 ? void 0 : _f.products) === null || _g === void 0 ? void 0 : _g.bom.map(rawMaterial => rawMaterial.bom_list.map(bomListItem => ({
+                        sizeId: (_h = (_g = transactionItem.product_size) === null || _g === void 0 ? void 0 : _g.sizes) === null || _h === void 0 ? void 0 : _h.id,
+                        sizeName: (_k = (_j = transactionItem.product_size) === null || _j === void 0 ? void 0 : _j.sizes) === null || _k === void 0 ? void 0 : _k.name,
+                        rawMaterials: (_m = (_l = transactionItem.product_size) === null || _l === void 0 ? void 0 : _l.products) === null || _m === void 0 ? void 0 : _m.bom.map(rawMaterial => rawMaterial.bom_list.map(bomListItem => ({
                             rawMaterialName: bomListItem.material.name,
                             rawMaterialId: bomListItem.material.id,
+                            quantityPerUnit: bomListItem.quantity,
                             quantityNeeded: bomListItem.quantity * transactionItem.quantity,
                             quantityAvailable: bomListItem.material.transactionItems.reduce((init, accum) => init + accum.remaining_quantity, 0)
                         }))).flat(1)

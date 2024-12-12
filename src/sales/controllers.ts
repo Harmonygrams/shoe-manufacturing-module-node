@@ -54,7 +54,6 @@ export async function addSalesOrder(req: Request, res: Response) {
                     sizes: true
                 }
             });
-
             // Validate that all requested products and sizes exist
             for (const product of products) {
                 for (const size of product.productSizes) {
@@ -214,11 +213,15 @@ export async function getSalesOrder (req : Request, res: Response) {
                 productId : transactionItem.product_size?.products?.id,
                 productName : transactionItem.product_size?.products?.name, 
                 colorName : transactionItem.color?.name, 
+                colorId : transactionItem.color?.id, 
                 quantity : transactionItem.quantity, 
                 cost : transactionItem.cost, 
+                sizeId : transactionItem.product_size?.sizes?.id, 
+                sizeName : transactionItem.product_size?.sizes?.name,
                 rawMaterials : transactionItem.product_size?.products?.bom.map(rawMaterial => rawMaterial.bom_list.map(bomListItem => ({ 
                     rawMaterialName : bomListItem.material.name, 
                     rawMaterialId : bomListItem.material.id, 
+                    quantityPerUnit : bomListItem.quantity,
                     quantityNeeded : bomListItem.quantity * transactionItem.quantity,
                     quantityAvailable : bomListItem.material.transactionItems.reduce((init, accum) => init + accum.remaining_quantity, 0)
                 }))).flat(1)
