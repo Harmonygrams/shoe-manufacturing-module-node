@@ -166,8 +166,8 @@ export async function addProduction (req : Request, res: Response) {
         })
         res.status(201).json({ message : 'Successful'})
     }catch(err){
-        console.log(err)
-        res.status(500).json({ message : 'Server error '})
+        const errorMessage = err as Error;
+        res.status(400).json(errorMessage.message);
     }
 }
 export async function getProductions (req:Request, res:Response) {}

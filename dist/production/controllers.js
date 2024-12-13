@@ -177,8 +177,8 @@ function addProduction(req, res) {
             res.status(201).json({ message: 'Successful' });
         }
         catch (err) {
-            console.log(err);
-            res.status(500).json({ message: 'Server error ' });
+            const errorMessage = err;
+            res.status(400).json(errorMessage.message);
         }
     });
 }
