@@ -22,10 +22,37 @@ const prisma_1 = require("../lib/prisma");
 const materialSchema = joi_1.default.object({
     name: joi_1.default.string().required(),
     description: joi_1.default.string().allow("").optional(),
-    costPrice: joi_1.default.number().integer().min(0).required(),
-    unitId: joi_1.default.number().integer().min(1).required(),
-    openingStock: joi_1.default.number().integer().min(0).required(),
-    reorderPoint: joi_1.default.number().integer().min(0).optional(),
+    costPrice: joi_1.default.number()
+        .precision(2)
+        .min(0).required()
+        .messages({
+        'number.base': 'The value must be a valid number.',
+        'number.positive': 'The number must be positive.',
+        'number.precision': 'The number must have at most 2 decimal places.',
+        'any.required': 'This field is required.',
+    }),
+    unitId: joi_1.default.number()
+        .integer()
+        .min(1)
+        .required()
+        .messages({ 'any.required': 'Please select unit', 'number.base': 'Please select unit' }),
+    openingStock: joi_1.default.number()
+        .precision(2)
+        .min(0).required()
+        .messages({
+        'number.base': 'Opening stock must be a valid number.',
+        'number.precision': 'The number must have at most 2 decimal places.',
+        'any.required': 'This field is required.',
+    })
+        .min(0).required(),
+    reorderPoint: joi_1.default.number()
+        .precision(2)
+        .min(0)
+        .default(0)
+        .messages({
+        'number.base': 'Reorder point must be a valid number.',
+        'any.required': 'This field is required.',
+    }),
     openingStockDate: joi_1.default.date().default(() => new Date())
 });
 const updateMaterialSchema = joi_1.default.object({
@@ -40,6 +67,7 @@ const updateMaterialSchema = joi_1.default.object({
 function addMaterial(req, res) {
     return __awaiter(this, void 0, void 0, function* () {
         try {
+            console.log(req.body);
             const { error, value } = materialSchema.validate(req.body);
             if (error) {
                 res.status(400).json({ message: error.details[0].message });
@@ -50,8 +78,8 @@ function addMaterial(req, res) {
             const newMaterial = yield prisma_1.prisma.rawMaterials.create({
                 data: {
                     name,
-                    description: description || null,
-                    reorder_point: reorderPoint || null,
+                    description: description,
+                    reorder_point: reorderPoint,
                     unit_id: unitId,
                 },
             });
@@ -111,20 +139,20 @@ function getMaterials(req, res) {
                     const cost = transactionItem.cost || 0;
                     switch ((_a = transactionItem.transactions) === null || _a === void 0 ? void 0 : _a.transaction_type) {
                         case "opening_stock":
-                            totalOpeningStock += quantity;
+                            totalOpeningStock += Number(quantity);
                             break;
                         case "purchase":
-                            totalPurchases += quantity;
+                            totalPurchases += Number(quantity);
                             break;
                         case "sale":
-                            totalSales += quantity;
+                            totalSales += Number(quantity);
                             break;
                         case "adjustment":
-                            totalAdjustments += quantity;
+                            totalAdjustments += Number(quantity);
                             break;
                     }
                     if (["opening_stock", "purchase"].includes(((_b = transactionItem.transactions) === null || _b === void 0 ? void 0 : _b.transaction_type) || 'opening_stock')) {
-                        latestCostPrice = cost;
+                        latestCostPrice = Number(cost);
                     }
                 });
                 const currentStock = totalOpeningStock + totalPurchases - totalSales + totalAdjustments;

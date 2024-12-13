@@ -46,7 +46,7 @@ model RawMaterials {
   transactionItems TransactionItems[]
   unit_id      Int?     // Foreign key
   unit        Unit?    @relation(fields: [unit_id], references: [id])
-  reorder_point Int?
+  reorder_point Decimal @default(0.0)
   bom_list BillOfMaterialsList[]
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
@@ -56,9 +56,8 @@ model Product {
   name String 
   unit_id  Int?     // Foreign key
   unit  Unit?    @relation(fields: [unit_id], references: [id])
-  selling_price Int @default(0)
+  selling_price Decimal @default(0)
   description String? 
-  sku String? @unique()
   product_sizes ProductSize[]
   bom BillOfMaterials[]
   created_at DateTime @default(now()) 
@@ -119,7 +118,7 @@ model ManufacturingCost {
 }
 model ManufacturingCostTransaction { 
   id Int @id @default(autoincrement())
-  cost Int
+  cost Decimal @default(0.0)
   cost_name_id Int
   manufacturing_cost_id Int?
   cost_name ManufacturingCost @relation(fields: [cost_name_id], references: [id])
@@ -129,9 +128,9 @@ model ManufacturingCostTransaction {
 }
 model TransactionItems {
   id Int @id @default(autoincrement())
-  quantity Int
-  remaining_quantity Int
-  cost Int
+  quantity Decimal @default(0.0)
+  remaining_quantity Decimal @default(0.0)
+  cost Decimal @default(0.0)
   material_id Int? //Foreign key for raw material
   product_size_id Int? //Foreign key for product 
   color_id Int?
@@ -146,7 +145,7 @@ model TransactionItems {
 model BillOfMaterials {
     id Int @id @default(autoincrement())
     product_id Int
-    quantity Int 
+    quantity Decimal @default(0.0)
     bom_date DateTime
     bom_list BillOfMaterialsList[]
     product Product @relation(fields: [product_id], references: [id])
@@ -157,7 +156,7 @@ model BillOfMaterialsList {
   id Int @id @default(autoincrement())
   bom_id Int 
   material_id Int 
-  quantity Int 
+  quantity Decimal @default(0.0)
   bom BillOfMaterials @relation(fields: [bom_id], references: [id])
   material RawMaterials @relation(fields: [material_id], references: [id])
   created_at DateTime @default(now()) 

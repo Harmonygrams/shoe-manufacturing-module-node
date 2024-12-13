@@ -21,15 +21,14 @@ const joi_1 = __importDefault(require("joi"));
 const prisma_1 = require("../lib/prisma");
 // Validation schemas
 const productSchema = joi_1.default.object({
-    name: joi_1.default.string().required(),
-    unitId: joi_1.default.number().optional(),
-    sku: joi_1.default.string().optional().allow(''),
+    name: joi_1.default.string().required().messages({ 'any.required': 'Product name required', 'string.empty': 'Product name required' }),
+    unitId: joi_1.default.number().optional().messages({ 'number.base': 'Please select unit' }),
     description: joi_1.default.string().allow(''),
     sizes: joi_1.default.array().items({
         sizeId: joi_1.default.number(),
         quantity: joi_1.default.number().min(1),
         cost: joi_1.default.number().min(0),
-    })
+    }).min(1).required().messages({ 'array.base': 'Please select at least one size', 'any.required': 'Please select at least one size', 'array.min': 'Please select at least one size' })
 });
 const updateProductSchema = joi_1.default.object({
     name: joi_1.default.string().optional(),
@@ -58,7 +57,6 @@ function addProduct(req, res) {
                         name: name,
                         description: description,
                         unit_id: unitId,
-                        sku: sku
                     }
                 });
                 //Create product sizes               
@@ -192,20 +190,20 @@ function getProducts(req, res) {
                         const cost = transaction.cost || 0;
                         switch ((_a = transaction.transactions) === null || _a === void 0 ? void 0 : _a.transaction_type) {
                             case 'opening_stock':
-                                totalOpeningStock += quantity;
+                                totalOpeningStock += Number(quantity);
                                 if (cost)
-                                    latestCostPrice = cost;
+                                    latestCostPrice = Number(cost);
                                 break;
                             case 'purchase':
-                                totalPurchases += quantity;
+                                totalPurchases += Number(quantity);
                                 if (cost)
-                                    latestCostPrice = cost;
+                                    latestCostPrice = Number(cost);
                                 break;
                             case 'sale':
-                                totalSales += quantity;
+                                totalSales += Number(quantity);
                                 break;
                             case 'adjustment':
-                                totalAdjustments += quantity;
+                                totalAdjustments += Number(quantity);
                                 break;
                         }
                     });
@@ -229,12 +227,11 @@ function getProducts(req, res) {
                     id: bomListItem.material.id,
                     name: bomListItem.material.name,
                     quantityNeeded: bomListItem.quantity,
-                    quantityAvailable: bomListItem.material.transactionItems.map(bomListItem => bomListItem.quantity).reduce((initial, accum) => (initial + accum), 0)
+                    quantityAvailable: bomListItem.material.transactionItems.map(bomListItem => bomListItem.quantity).reduce((initial, accum) => (initial + Number(accum)), 0)
                 })))).flat(2);
                 return {
                     id: product.id,
                     name: product.name,
-                    sku: product.sku,
                     description: product.description,
                     selling_price: product.selling_price,
                     unit: ((_a = product.unit) === null || _a === void 0 ? void 0 : _a.symbol) || 'N/A',
@@ -372,7 +369,6 @@ function getProduct(req, res) {
             const processedProduct = {
                 id: product.id,
                 name: product.name,
-                sku: product.sku,
                 description: product.description,
                 selling_price: product.selling_price,
                 unit: product.unit,
@@ -383,7 +379,7 @@ function getProduct(req, res) {
                     materials: bom.bom_list.map(item => ({
                         material: item.material.name,
                         quantityNeeded: item.quantity,
-                        quantityAvailable: (item.material.transactionItems.map(transactionItem => transactionItem.quantity)).reduce((prev, accum) => prev + accum, 0)
+                        quantityAvailable: (item.material.transactionItems.map(transactionItem => transactionItem.quantity)).reduce((prev, accum) => prev + Number(accum), 0)
                     }))
                 })),
                 created_at: product.created_at,
@@ -430,7 +426,6 @@ function updateProduct(req, res) {
                         name,
                         description,
                         unit_id: unitId,
-                        sku,
                         selling_price
                     }
                 });

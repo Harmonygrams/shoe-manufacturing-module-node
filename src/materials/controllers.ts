@@ -6,10 +6,37 @@ import { prisma } from "../lib/prisma";
 const materialSchema = Joi.object({
     name: Joi.string().required(),
     description: Joi.string().allow("").optional(),
-    costPrice: Joi.number().integer().min(0).required(),
-    unitId: Joi.number().integer().min(1).required(),
-    openingStock: Joi.number().integer().min(0).required(),
-    reorderPoint: Joi.number().integer().min(0).optional(),
+    costPrice: Joi.number()
+        .precision(2)
+        .min(0).required()
+        .messages({
+            'number.base': 'The value must be a valid number.',
+            'number.positive': 'The number must be positive.',
+            'number.precision': 'The number must have at most 2 decimal places.',
+            'any.required': 'This field is required.',
+          }),
+    unitId: Joi.number()
+        .integer()
+        .min(1)
+        .required()
+        .messages({'any.required' : 'Please select unit', 'number.base' : 'Please select unit'}),
+    openingStock: Joi.number()
+        .precision(2)
+        .min(0).required()
+        .messages({
+            'number.base': 'Opening stock must be a valid number.',
+            'number.precision': 'The number must have at most 2 decimal places.',
+            'any.required': 'This field is required.',
+        })
+        .min(0).required(),
+    reorderPoint: Joi.number()
+        .precision(2)
+        .min(0)
+        .default(0)
+        .messages({
+            'number.base': 'Reorder point must be a valid number.',
+            'any.required': 'This field is required.',
+          }),
     openingStockDate: Joi.date().default(() => new Date())
 });
 
@@ -25,6 +52,7 @@ const updateMaterialSchema = Joi.object({
 // Add a new material
 export async function addMaterial(req: Request, res: Response) {
     try {
+        console.log(req.body)
         const { error, value } = materialSchema.validate(req.body);
         if (error) {
             res.status(400).json({ message: error.details[0].message });
@@ -37,8 +65,8 @@ export async function addMaterial(req: Request, res: Response) {
         const newMaterial = await prisma.rawMaterials.create({
             data: {
                 name,
-                description: description || null,
-                reorder_point: reorderPoint || null,
+                description: description,
+                reorder_point: reorderPoint,
                 unit_id: unitId,
             },
         });
@@ -99,21 +127,21 @@ export async function getMaterials(req: Request, res: Response) {
                 const cost = transactionItem.cost || 0;
                 switch (transactionItem.transactions?.transaction_type) {
                     case "opening_stock":
-                        totalOpeningStock += quantity;
+                        totalOpeningStock += Number(quantity);
                         break;
                     case "purchase":
-                        totalPurchases += quantity;
+                        totalPurchases += Number(quantity);
                         break;
                     case "sale":
-                        totalSales += quantity;
+                        totalSales += Number(quantity);
                         break;
                     case "adjustment":
-                        totalAdjustments += quantity;
+                        totalAdjustments += Number(quantity);
                         break;
                 }
 
                 if (["opening_stock", "purchase"].includes(transactionItem.transactions?.transaction_type || 'opening_stock')) {
-                    latestCostPrice = cost;
+                    latestCostPrice = Number(cost);
                 }
             });
 

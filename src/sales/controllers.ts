@@ -222,8 +222,8 @@ export async function getSalesOrder (req : Request, res: Response) {
                     rawMaterialName : bomListItem.material.name, 
                     rawMaterialId : bomListItem.material.id, 
                     quantityPerUnit : bomListItem.quantity,
-                    quantityNeeded : bomListItem.quantity * transactionItem.quantity,
-                    quantityAvailable : bomListItem.material.transactionItems.reduce((init, accum) => init + accum.remaining_quantity, 0)
+                    quantityNeeded : Number(bomListItem.quantity) * Number(transactionItem.quantity),
+                    quantityAvailable : bomListItem.material.transactionItems.reduce((init, accum) => init + Number(accum.remaining_quantity), 0)
                 }))).flat(1)
         }))
     }

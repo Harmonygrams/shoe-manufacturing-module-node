@@ -57,7 +57,6 @@ export async function getBillsOfMaterial(req: Request, res: Response) {
                     select: {
                         id: true,
                         name: true,
-                        sku: true
                     }
                 },
                 bom_list: {
@@ -92,9 +91,9 @@ export async function getBillsOfMaterial(req: Request, res: Response) {
                 const lastTransactionWithCost = bomListItem.material.transactionItems.find(trans => 
                     (trans.transactions?.transaction_type === "purchase" || trans.transactions?.transaction_type === "opening_stock" || trans.transactions?.transaction_type === "adjustment") && trans.cost
                 )
-                lastCostPriceTransaction = lastTransactionWithCost?.cost || 0
+                lastCostPriceTransaction = Number(lastTransactionWithCost?.cost) || 0
                 return {
-                    quantity: bomListItem.material.transactionItems.reduce((initial, accum) => initial + accum.remaining_quantity, 0),
+                    quantity: bomListItem.material.transactionItems.reduce((initial, accum) => initial + Number(accum.remaining_quantity), 0),
                     materialName: bomListItem.material.name,
                     unit: bomListItem.material.unit?.name,
                     cost: lastCostPriceTransaction
@@ -107,7 +106,6 @@ export async function getBillsOfMaterial(req: Request, res: Response) {
                 id: bomItem.id,
                 productName: bomItem.product.name,
                 productId : bomItem.product.id,
-                sku: bomItem.product.sku,
                 bomDate: bomItem.bom_date,
                 bomList,
                 totalCost, // Added total cost
@@ -136,7 +134,6 @@ export async function getBillOfMaterial(req: Request, res: Response) {
                     select: {
                         id: true,
                         name: true,
-                        sku: true
                     }
                 },
                 bom_list: {
@@ -176,12 +173,12 @@ export async function getBillOfMaterial(req: Request, res: Response) {
         const bomList = fetchBillOfMaterial?.bom_list.map(bomListItem => {
             // Get the most recent cost price from purchase or opening stock
             const lastTransactionWithCost = bomListItem.material.transactionItems.find(trans =>{
-                totalQuantity += trans.quantity
+                totalQuantity += Number(trans.quantity)
                 return (trans.transactions?.transaction_type === "purchase" || trans.transactions?.transaction_type === "opening_stock" || trans.transactions?.transaction_type === "adjustment") && trans.cost
             }
 
             )
-            lastCostPriceTransaction = lastTransactionWithCost?.cost || 0
+            lastCostPriceTransaction = Number(lastTransactionWithCost?.cost) || 0
             return {
                 name: bomListItem.material.name,
                 unitName: bomListItem.material.unit?.name,
@@ -193,12 +190,11 @@ export async function getBillOfMaterial(req: Request, res: Response) {
         })
 
         // Calculate total cost
-        const totalCost = bomList?.reduce((sum, item) => sum + (item.quantityNeed * item.cost), 0) || 0
+        const totalCost = bomList?.reduce((sum, item) => sum + (Number(item.quantityNeed) * item.cost), 0) || 0
 
         const product = {
             id: fetchBillOfMaterial?.id,
             productName: fetchBillOfMaterial?.product.name,
-            sku: fetchBillOfMaterial?.product.sku,
             bomDate: fetchBillOfMaterial?.bom_date,
             bomList,
             totalCost, // Added total cost

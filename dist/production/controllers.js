@@ -90,7 +90,7 @@ function addProduction(req, res) {
                 for (const rawMaterial of rawMaterials) {
                     for (const rawMaterialFromDb of getRawMaterialsFromDb) {
                         if (rawMaterial.materialId === rawMaterialFromDb.id) {
-                            const totalQuantityRemaining = rawMaterialFromDb.transactionItems.reduce((initial, accum) => initial + accum.remaining_quantity, 0);
+                            const totalQuantityRemaining = rawMaterialFromDb.transactionItems.reduce((initial, accum) => initial + Number(accum.remaining_quantity), 0);
                             if (totalQuantityRemaining < rawMaterial.quantity) {
                                 throw new Error(`${rawMaterialFromDb.name} is insufficient. \nRequired Quantity: ${rawMaterial.quantity}\nRemaining Quantity: ${totalQuantityRemaining}`);
                             }
@@ -104,7 +104,7 @@ function addProduction(req, res) {
                             let quantityNeeded = rawMaterial.quantity;
                             //For when the quantity needed is bigger than in stock
                             for (const transaction of rawMaterialFromDb.transactionItems) {
-                                if (quantityNeeded === transaction.remaining_quantity) {
+                                if (quantityNeeded === Number(transaction.remaining_quantity)) {
                                     yield tx.transactionItems.update({
                                         where: {
                                             id: transaction.id,
@@ -116,7 +116,7 @@ function addProduction(req, res) {
                                     });
                                     quantityNeeded = 0;
                                 }
-                                if (quantityNeeded > transaction.remaining_quantity && quantityNeeded > 0) {
+                                if (quantityNeeded > Number(transaction.remaining_quantity) && quantityNeeded > 0) {
                                     yield tx.transactionItems.update({
                                         where: {
                                             id: transaction.id,
@@ -126,17 +126,17 @@ function addProduction(req, res) {
                                             remaining_quantity: 0
                                         }
                                     });
-                                    quantityNeeded = quantityNeeded - transaction.remaining_quantity;
+                                    quantityNeeded = quantityNeeded - Number(transaction.remaining_quantity);
                                 }
                                 //For  when quantity needed is less than the quantity in stock
-                                if (quantityNeeded < transaction.remaining_quantity && quantityNeeded > 0) {
+                                if (quantityNeeded < Number(transaction.remaining_quantity) && quantityNeeded > 0) {
                                     yield tx.transactionItems.update({
                                         where: {
                                             id: transaction.id,
                                             material_id: rawMaterialFromDb.id
                                         },
                                         data: {
-                                            remaining_quantity: transaction.remaining_quantity - quantityNeeded
+                                            remaining_quantity: Number(transaction.remaining_quantity) - quantityNeeded
                                         }
                                     });
                                     quantityNeeded = 0;

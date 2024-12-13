@@ -4,16 +4,14 @@ import { prisma } from "../lib/prisma";
 
 // Validation schemas
 const productSchema = Joi.object({
-    name: Joi.string().required(),
-    unitId: Joi.number().optional(),
-    sku : Joi.string().optional().allow(''),
+    name: Joi.string().required().messages({'any.required' : 'Product name required', 'string.empty' : 'Product name required'}),
+    unitId: Joi.number().optional().messages({'number.base' : 'Please select unit'}),
     description : Joi.string().allow(''),
     sizes : Joi.array().items({
         sizeId : Joi.number(),
         quantity : Joi.number().min(1), 
         cost : Joi.number().min(0),
-    })
-
+    }).min(1).required().messages({'array.base' : 'Please select at least one size', 'any.required' : 'Please select at least one size', 'array.min' : 'Please select at least one size'})
 });
 
 const updateProductSchema = Joi.object({
@@ -43,7 +41,6 @@ export async function addProduct(req: Request, res: Response) {
                     name : name, 
                     description : description, 
                     unit_id : unitId,  
-                    sku : sku
                 }
             })
             //Create product sizes               
@@ -175,18 +172,18 @@ export async function getProducts(req: Request, res: Response) {
 
                     switch (transaction.transactions?.transaction_type) {
                         case 'opening_stock':
-                            totalOpeningStock += quantity;
-                            if (cost) latestCostPrice = cost;
+                            totalOpeningStock += Number(quantity);
+                            if (cost) latestCostPrice = Number(cost);
                             break;
                         case 'purchase':
-                            totalPurchases += quantity;
-                            if (cost) latestCostPrice = cost;
+                            totalPurchases += Number(quantity);
+                            if (cost) latestCostPrice = Number(cost);
                             break;
                         case 'sale':
-                            totalSales += quantity;
+                            totalSales += Number(quantity);
                             break;
                         case 'adjustment':
-                            totalAdjustments += quantity;
+                            totalAdjustments += Number(quantity);
                             break;
                     }
                 });
@@ -223,12 +220,11 @@ export async function getProducts(req: Request, res: Response) {
                     id : bomListItem.material.id,
                     name : bomListItem.material.name, 
                     quantityNeeded : bomListItem.quantity, 
-                    quantityAvailable : bomListItem.material.transactionItems.map(bomListItem => bomListItem.quantity).reduce((initial, accum) => (initial + accum), 0)
+                    quantityAvailable : bomListItem.material.transactionItems.map(bomListItem => bomListItem.quantity).reduce((initial, accum) => (initial + Number(accum)), 0)
                 })))).flat(2);
             return {
                 id: product.id,
                 name: product.name,
-                sku: product.sku,
                 description: product.description,
                 selling_price: product.selling_price,
                 unit: product.unit?.symbol || 'N/A',
@@ -371,7 +367,6 @@ export async function getProduct(req: Request, res: Response) {
         const processedProduct = {
             id: product.id,
             name: product.name,
-            sku: product.sku,
             description: product.description,
             selling_price: product.selling_price,
             unit: product.unit,
@@ -382,7 +377,7 @@ export async function getProduct(req: Request, res: Response) {
                 materials: bom.bom_list.map(item => ({
                     material: item.material.name,
                     quantityNeeded: item.quantity, 
-                    quantityAvailable : (item.material.transactionItems.map(transactionItem => transactionItem.quantity)).reduce((prev, accum) => prev + accum, 0)
+                    quantityAvailable : (item.material.transactionItems.map(transactionItem => transactionItem.quantity)).reduce((prev, accum) => prev + Number(accum), 0)
                 }))
             })),
             created_at: product.created_at,
@@ -434,7 +429,6 @@ export async function updateProduct(req: Request, res: Response) {
                     name,
                     description,
                     unit_id: unitId,
-                    sku,
                     selling_price
                 }
             });

@@ -72,7 +72,6 @@ function getBillsOfMaterial(req, res) {
                         select: {
                             id: true,
                             name: true,
-                            sku: true
                         }
                     },
                     bom_list: {
@@ -106,9 +105,9 @@ function getBillsOfMaterial(req, res) {
                     var _a;
                     // Get the most recent cost price from purchase or opening stock
                     const lastTransactionWithCost = bomListItem.material.transactionItems.find(trans => { var _a, _b, _c; return (((_a = trans.transactions) === null || _a === void 0 ? void 0 : _a.transaction_type) === "purchase" || ((_b = trans.transactions) === null || _b === void 0 ? void 0 : _b.transaction_type) === "opening_stock" || ((_c = trans.transactions) === null || _c === void 0 ? void 0 : _c.transaction_type) === "adjustment") && trans.cost; });
-                    lastCostPriceTransaction = (lastTransactionWithCost === null || lastTransactionWithCost === void 0 ? void 0 : lastTransactionWithCost.cost) || 0;
+                    lastCostPriceTransaction = Number(lastTransactionWithCost === null || lastTransactionWithCost === void 0 ? void 0 : lastTransactionWithCost.cost) || 0;
                     return {
-                        quantity: bomListItem.material.transactionItems.reduce((initial, accum) => initial + accum.remaining_quantity, 0),
+                        quantity: bomListItem.material.transactionItems.reduce((initial, accum) => initial + Number(accum.remaining_quantity), 0),
                         materialName: bomListItem.material.name,
                         unit: (_a = bomListItem.material.unit) === null || _a === void 0 ? void 0 : _a.name,
                         cost: lastCostPriceTransaction
@@ -120,7 +119,6 @@ function getBillsOfMaterial(req, res) {
                     id: bomItem.id,
                     productName: bomItem.product.name,
                     productId: bomItem.product.id,
-                    sku: bomItem.product.sku,
                     bomDate: bomItem.bom_date,
                     bomList,
                     totalCost, // Added total cost
@@ -152,7 +150,6 @@ function getBillOfMaterial(req, res) {
                         select: {
                             id: true,
                             name: true,
-                            sku: true
                         }
                     },
                     bom_list: {
@@ -194,10 +191,10 @@ function getBillOfMaterial(req, res) {
                 // Get the most recent cost price from purchase or opening stock
                 const lastTransactionWithCost = bomListItem.material.transactionItems.find(trans => {
                     var _a, _b, _c;
-                    totalQuantity += trans.quantity;
+                    totalQuantity += Number(trans.quantity);
                     return (((_a = trans.transactions) === null || _a === void 0 ? void 0 : _a.transaction_type) === "purchase" || ((_b = trans.transactions) === null || _b === void 0 ? void 0 : _b.transaction_type) === "opening_stock" || ((_c = trans.transactions) === null || _c === void 0 ? void 0 : _c.transaction_type) === "adjustment") && trans.cost;
                 });
-                lastCostPriceTransaction = (lastTransactionWithCost === null || lastTransactionWithCost === void 0 ? void 0 : lastTransactionWithCost.cost) || 0;
+                lastCostPriceTransaction = Number(lastTransactionWithCost === null || lastTransactionWithCost === void 0 ? void 0 : lastTransactionWithCost.cost) || 0;
                 return {
                     name: bomListItem.material.name,
                     unitName: (_a = bomListItem.material.unit) === null || _a === void 0 ? void 0 : _a.name,
@@ -208,11 +205,10 @@ function getBillOfMaterial(req, res) {
                 };
             });
             // Calculate total cost
-            const totalCost = (bomList === null || bomList === void 0 ? void 0 : bomList.reduce((sum, item) => sum + (item.quantityNeed * item.cost), 0)) || 0;
+            const totalCost = (bomList === null || bomList === void 0 ? void 0 : bomList.reduce((sum, item) => sum + (Number(item.quantityNeed) * item.cost), 0)) || 0;
             const product = {
                 id: fetchBillOfMaterial === null || fetchBillOfMaterial === void 0 ? void 0 : fetchBillOfMaterial.id,
                 productName: fetchBillOfMaterial === null || fetchBillOfMaterial === void 0 ? void 0 : fetchBillOfMaterial.product.name,
-                sku: fetchBillOfMaterial === null || fetchBillOfMaterial === void 0 ? void 0 : fetchBillOfMaterial.product.sku,
                 bomDate: fetchBillOfMaterial === null || fetchBillOfMaterial === void 0 ? void 0 : fetchBillOfMaterial.bom_date,
                 bomList,
                 totalCost, // Added total cost
