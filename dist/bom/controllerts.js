@@ -18,14 +18,23 @@ exports.getBillOfMaterial = getBillOfMaterial;
 const prisma_1 = require("../lib/prisma");
 const joi_1 = __importDefault(require("joi"));
 const addBillOfMaterialSchema = joi_1.default.object({
-    productId: joi_1.default.number(),
+    productId: joi_1.default.number().messages({
+        'number.base': "Please select a product",
+        'any.required': 'Please select a product'
+    }),
     quantity: joi_1.default.number().min(1),
     bomDate: joi_1.default.date().default(new Date()),
-    bomList: joi_1.default.array().items({
-        bomId: joi_1.default.number(),
-        materialId: joi_1.default.number(),
-        quantity: joi_1.default.number().min(1),
-    }),
+    bomList: joi_1.default.array().min(1).required().items({
+        materialId: joi_1.default.number().required().messages({
+            'number.base': "Please select a material",
+            'any.required': 'Please select a material'
+        }),
+        quantity: joi_1.default.number().min(0).required().messages({
+            'number.base': "Quantity is required",
+            'any.required': 'Quantity is required',
+            'number.min': 'Quantity must be equal or more than 0'
+        }),
+    }).messages({ 'array.base': 'Please select at least one raw material', 'array.min': 'Please select at least one raw material' }),
 });
 function addBillOfMaterial(req, res) {
     return __awaiter(this, void 0, void 0, function* () {
@@ -33,6 +42,7 @@ function addBillOfMaterial(req, res) {
             // Validate request body
             const { error, value } = addBillOfMaterialSchema.validate(req.body);
             if (error) {
+                console.log(error);
                 res.status(400).json({ message: error.details[0].message });
                 return;
             }
@@ -59,6 +69,7 @@ function addBillOfMaterial(req, res) {
             res.status(201).json({ message: "Bom added successfully" });
         }
         catch (err) {
+            console.log(err);
             res.status(500).json({ message: "server error occurred" });
         }
     });

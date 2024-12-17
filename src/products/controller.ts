@@ -8,9 +8,9 @@ const productSchema = Joi.object({
     unitId: Joi.number().optional().messages({'number.base' : 'Please select unit'}),
     description : Joi.string().allow(''),
     sizes : Joi.array().items({
-        sizeId : Joi.number(),
-        quantity : Joi.number().min(1), 
-        cost : Joi.number().min(0),
+        sizeId : Joi.number().required().messages({ 'number.required' : "Please select at least one size" }),
+        quantity : Joi.number().min(0).messages({ 'number.min' : 'Quantity must be equal or greater than 0', 'any.required' : 'Quantity required', 'number.base' : 'Invalid quantity'}), 
+        cost : Joi.number().precision(2).min(0).messages({ 'number.min' : 'Cost must be equal or greater than 0', 'number.precision' : "Invalid cost price", 'any.required' : "Cost price required", 'number.base' : 'Invalid cost price'}),
     }).min(1).required().messages({'array.base' : 'Please select at least one size', 'any.required' : 'Please select at least one size', 'array.min' : 'Please select at least one size'})
 });
 

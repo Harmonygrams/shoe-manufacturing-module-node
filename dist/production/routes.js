@@ -8,4 +8,6 @@ const express_1 = __importDefault(require("express"));
 const controllers_1 = require("./controllers");
 const router = express_1.default.Router();
 exports.productionRouter = router;
-router.post('/', controllers_1.addProduction);
+router
+    .post('/', controllers_1.addProduction)
+    .get('/', controllers_1.getProductions);

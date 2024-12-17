@@ -20,18 +20,21 @@ exports.deleteSalesOrders = deleteSalesOrders;
 const joi_1 = __importDefault(require("joi"));
 const prisma_1 = require("../lib/prisma");
 const addSalesOrderSchema = joi_1.default.object({
-    customerId: joi_1.default.number().required(),
+    customerId: joi_1.default.number().required().messages({
+        'number.base': 'Please select a customer',
+        'any.required': 'Please select a customer'
+    }),
     transactionDate: joi_1.default.date().default(new Date()),
-    status: joi_1.default.string(),
-    products: joi_1.default.array().items({
-        productId: joi_1.default.string().required(),
+    status: joi_1.default.string().required().messages({ 'any.required': 'Specify sales order status', 'string.empty': 'Specify sales order status' }),
+    products: joi_1.default.array().required().min(1).items({
+        productId: joi_1.default.string().required().messages({}),
         productSizes: joi_1.default.array().items({
             sizeId: joi_1.default.string().required(),
-            colorId: joi_1.default.number(),
-            quantity: joi_1.default.number().min(1).required(),
-            cost: joi_1.default.number().min(0).required()
+            colorId: joi_1.default.number().required().messages({ 'number.base': 'Please specify product color' }),
+            quantity: joi_1.default.number().min(0).required().messages({ 'number.min': 'Quantity must be equal or greater than 0', 'any.required': 'Please specify the products quantity' }),
+            cost: joi_1.default.number().min(0).precision(2).required().messages({ 'number.min': 'Cost price must be equal to or greater than 0', 'number.base': 'Please specify the cost price' })
         })
-    })
+    }).messages({ 'array.min': 'Please select at least one product' })
 });
 function addSalesOrder(req, res) {
     return __awaiter(this, void 0, void 0, function* () {

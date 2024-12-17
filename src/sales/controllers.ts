@@ -3,18 +3,21 @@ import Joi from "joi";
 import { prisma } from "../lib/prisma";
 
 const addSalesOrderSchema = Joi.object({
-    customerId : Joi.number().required(),
+    customerId : Joi.number().required().messages({
+        'number.base' : 'Please select a customer', 
+        'any.required' : 'Please select a customer'
+    }),
     transactionDate : Joi.date().default(new Date()), 
-    status : Joi.string(),
-    products : Joi.array().items({
-        productId : Joi.string().required(), 
+    status : Joi.string().required().messages({'any.required' : 'Specify sales order status', 'string.empty' : 'Specify sales order status'}),
+    products : Joi.array().required().min(1).items({
+        productId : Joi.string().required().messages({}), 
         productSizes : Joi.array().items({
             sizeId : Joi.string().required(), 
-            colorId : Joi.number(),
-            quantity : Joi.number().min(1).required(), 
-            cost : Joi.number().min(0).required()
+            colorId : Joi.number().required().messages({'number.base' : 'Please specify product color'}),
+            quantity : Joi.number().min(0).required().messages({'number.min' : 'Quantity must be equal or greater than 0', 'any.required' : 'Please specify the products quantity'}), 
+            cost : Joi.number().min(0).precision(2).required().messages({'number.min' : 'Cost price must be equal to or greater than 0', 'number.base' : 'Please specify the cost price'})
         })
-    })
+    }).messages({'array.min' : 'Please select at least one product'})
 })
 type ProductSize = { 
     sizeId : string; 

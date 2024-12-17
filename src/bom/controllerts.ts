@@ -4,14 +4,23 @@ import { prisma } from "../lib/prisma";
 import Joi from "joi";
 
 const addBillOfMaterialSchema = Joi.object({
-    productId : Joi.number(), 
+    productId : Joi.number().messages({
+        'number.base' : "Please select a product", 
+        'any.required' : 'Please select a product'
+    }), 
     quantity : Joi.number().min(1), 
     bomDate : Joi.date().default(new Date()),
-    bomList : Joi.array().items({
-        bomId : Joi.number(), 
-        materialId : Joi.number(), 
-        quantity : Joi.number().min(1), 
-    }),
+    bomList : Joi.array().min(1).required().items({
+        materialId : Joi.number().required().messages({
+            'number.base' : "Please select a material", 
+            'any.required' : 'Please select a material'
+        }), 
+        quantity : Joi.number().min(0).required().messages({
+            'number.base' : "Quantity is required", 
+            'any.required' : 'Quantity is required', 
+            'number.min' : 'Quantity must be equal or more than 0'
+        }), 
+    }).messages({'array.base' : 'Please select at least one raw material', 'array.min' : 'Please select at least one raw material'}),
 })
 
 export async function addBillOfMaterial (req: Request, res:Response) {
@@ -19,6 +28,7 @@ export async function addBillOfMaterial (req: Request, res:Response) {
         // Validate request body
         const {error, value} = addBillOfMaterialSchema.validate(req.body); 
         if(error){
+            console.log(error)
             res.status(400).json({ message: error.details[0].message });
             return 
         }
@@ -45,6 +55,7 @@ export async function addBillOfMaterial (req: Request, res:Response) {
         })                                                                        
         res.status(201).json({ message : "Bom added successfully"})
     }catch(err){
+        console.log(err); 
         res.status(500).json({ message : "server error occurred"})
     }
 }

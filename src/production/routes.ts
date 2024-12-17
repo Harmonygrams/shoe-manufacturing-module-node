@@ -1,8 +1,10 @@
 import express, { Router } from 'express';
-import { addProduction } from './controllers';
+import { addProduction, getProductions, } from './controllers';
 
 const router : Router = express.Router(); 
 
-router.post('/', addProduction)
+router
+    .post('/', addProduction)
+    .get('/', getProductions)
 
 export { router as productionRouter }

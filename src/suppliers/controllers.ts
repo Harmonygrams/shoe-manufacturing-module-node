@@ -39,11 +39,19 @@ export async function addSupplier (req: Request, res : Response) {
 export async function getSupplier (req: Request, res : Response) {}
 export async function getSuppliers (req: Request, res : Response) {
     try {
-        const suppliers = await prisma.supplier.findMany({
+        const fetchSuppliers = await prisma.supplier.findMany({
             orderBy: {
                 created_at: 'desc'
             }
         });
+        const suppliers = fetchSuppliers.map(supplier => ({
+            id : supplier.id,
+            supplierName : supplier.supplier_type === 'individual' ? `${supplier.first_name} ${supplier.last_name}` : `${supplier.business_name}`, 
+            email : supplier.email, 
+            phone : supplier.phone, 
+            address : supplier.address, 
+            createdAt : supplier.created_at
+        }))
         res.status(200).json(suppliers);
     } catch (err) {
         console.log(err);

@@ -9,4 +9,5 @@ const controllers_1 = require("./controllers");
 const router = express_1.default.Router();
 exports.purchaseRouter = router;
 router
-    .post('/', controllers_1.addPurchase);
+    .post('/', controllers_1.addPurchase)
+    .get('/', controllers_1.getPurchases);

@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { prisma } from "../lib/prisma";
-import Joi from "joi";
+import Joi = require("joi");
 type RawMaterial = {
     materialId : number; 
     quantity : number; 
@@ -9,7 +9,7 @@ type Product = {
     productId : number; 
     sizeId : number;
     colorId : number;
-    quantity : number; 
+    quantity : number;
 }
 type ProductionLayload = { products : Product[], rawMaterials : RawMaterial[], status : string, productionDate : Date}
 const addProductSchema = Joi.object({
@@ -139,7 +139,8 @@ export async function addProduction (req : Request, res: Response) {
             const addTransaction = await tx.transaction.create({
                 data : {
                     transaction_date : productionDate,
-                    transaction_type : 'production'
+                    transaction_type : 'production', 
+                    manufacturing_status : 'cutting'
                 }
             })
             //Add product sizes to an array 
@@ -170,7 +171,33 @@ export async function addProduction (req : Request, res: Response) {
         res.status(400).json(errorMessage.message);
     }
 }
-export async function getProductions (req:Request, res:Response) {}
+export async function getProductions (req:Request, res:Response) {
+    try{
+        const fetchProductions = await prisma.transaction.findMany({
+            where : {
+                transaction_type : 'production',
+            },
+            select : {
+                id : true,
+                transaction_date : true, 
+                manufaction_costs : true, 
+                manufacturing_status : true,
+            },
+            orderBy : {
+                created_at : 'desc'
+            }
+        })
+        const processProductions = await fetchProductions.map(product => ({
+            id : product.id, 
+            date : product.transaction_date, 
+            cost : product.manufaction_costs.reduce((init, accum) => init + Number(accum.cost), 0), 
+            status : product.manufacturing_status
+        }))
+        res.status(200).json(processProductions);
+    }catch(err){
+        res.status(500).json({message: "Server error occurred "})
+    }
+}
 export async function getProduction (req:Request, res:Response) {}
 export async function updateProduction (req:Request, res:Response) {}
 export async function deleteProduction (req:Request, res:Response) {}

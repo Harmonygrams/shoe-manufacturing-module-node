@@ -8,9 +8,6 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.addProduction = addProduction;
 exports.getProductions = getProductions;
@@ -19,21 +16,21 @@ exports.updateProduction = updateProduction;
 exports.deleteProduction = deleteProduction;
 exports.validateProduction = validateProduction;
 const prisma_1 = require("../lib/prisma");
-const joi_1 = __importDefault(require("joi"));
-const addProductSchema = joi_1.default.object({
-    productionDate: joi_1.default.date().default(new Date()),
-    status: joi_1.default.string().required(),
-    products: joi_1.default.array().items({
-        productId: joi_1.default.number(),
-        sizeId: joi_1.default.number(),
-        colorId: joi_1.default.number(),
-        quantity: joi_1.default.number(),
+const Joi = require("joi");
+const addProductSchema = Joi.object({
+    productionDate: Joi.date().default(new Date()),
+    status: Joi.string().required(),
+    products: Joi.array().items({
+        productId: Joi.number(),
+        sizeId: Joi.number(),
+        colorId: Joi.number(),
+        quantity: Joi.number(),
     }),
-    rawMaterials: joi_1.default.array().items({
-        materialId: joi_1.default.number(),
-        quantity: joi_1.default.number(),
+    rawMaterials: Joi.array().items({
+        materialId: Joi.number(),
+        quantity: Joi.number(),
     }),
-    productionCosts: joi_1.default.array()
+    productionCosts: Joi.array()
 });
 function addProduction(req, res) {
     return __awaiter(this, void 0, void 0, function* () {
@@ -149,7 +146,8 @@ function addProduction(req, res) {
                 const addTransaction = yield tx.transaction.create({
                     data: {
                         transaction_date: productionDate,
-                        transaction_type: 'production'
+                        transaction_type: 'production',
+                        manufacturing_status: 'cutting'
                     }
                 });
                 //Add product sizes to an array 
@@ -183,7 +181,34 @@ function addProduction(req, res) {
     });
 }
 function getProductions(req, res) {
-    return __awaiter(this, void 0, void 0, function* () { });
+    return __awaiter(this, void 0, void 0, function* () {
+        try {
+            const fetchProductions = yield prisma_1.prisma.transaction.findMany({
+                where: {
+                    transaction_type: 'production',
+                },
+                select: {
+                    id: true,
+                    transaction_date: true,
+                    manufaction_costs: true,
+                    manufacturing_status: true,
+                },
+                orderBy: {
+                    created_at: 'desc'
+                }
+            });
+            const processProductions = yield fetchProductions.map(product => ({
+                id: product.id,
+                date: product.transaction_date,
+                cost: product.manufaction_costs.reduce((init, accum) => init + Number(accum.cost), 0),
+                status: product.manufacturing_status
+            }));
+            res.status(200).json(processProductions);
+        }
+        catch (err) {
+            res.status(500).json({ message: "Server error occurred " });
+        }
+    });
 }
 function getProduction(req, res) {
     return __awaiter(this, void 0, void 0, function* () { });

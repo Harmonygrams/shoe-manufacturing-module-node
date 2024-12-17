@@ -58,11 +58,19 @@ function getSupplier(req, res) {
 function getSuppliers(req, res) {
     return __awaiter(this, void 0, void 0, function* () {
         try {
-            const suppliers = yield prisma_1.prisma.supplier.findMany({
+            const fetchSuppliers = yield prisma_1.prisma.supplier.findMany({
                 orderBy: {
                     created_at: 'desc'
                 }
             });
+            const suppliers = fetchSuppliers.map(supplier => ({
+                id: supplier.id,
+                supplierName: supplier.supplier_type === 'individual' ? `${supplier.first_name} ${supplier.last_name}` : `${supplier.business_name}`,
+                email: supplier.email,
+                phone: supplier.phone,
+                address: supplier.address,
+                createdAt: supplier.created_at
+            }));
             res.status(200).json(suppliers);
         }
         catch (err) {
