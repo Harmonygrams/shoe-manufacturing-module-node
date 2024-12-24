@@ -19,11 +19,11 @@ exports.updateUnit = updateUnit;
 exports.deleteUnit = deleteUnit;
 const joi_1 = __importDefault(require("joi"));
 const prisma_1 = require("../lib/prisma");
-// Validation schema
+const schema_1 = require("../configs/schema");
 const unitSchema = joi_1.default.object({
-    name: joi_1.default.string().required(),
+    name: schema_1.validateSchema.nameField('Unit name'),
+    symbol: joi_1.default.string().required(),
     description: joi_1.default.string().allow(''),
-    symbol: joi_1.default.string().required()
 });
 const updateUnitSchema = joi_1.default.object({
     name: joi_1.default.string(),
@@ -39,8 +39,13 @@ function addUnit(req, res) {
                 res.status(400).json({ error: error.details[0].message });
                 return;
             }
+            const { name, description, symbol } = value;
             const unit = yield prisma_1.prisma.unit.create({
-                data: value
+                data: {
+                    name,
+                    description,
+                    symbol
+                }
             });
             res.status(201).json({ message: "Unit added successfully" });
             return;

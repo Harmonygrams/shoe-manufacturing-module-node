@@ -8,4 +8,4 @@ router
     .get('/', getSalesOrders)
     .get('/:id', getSalesOrder)
 
-export { router as salesOrderRouter}
+export { router as ordersRouter}

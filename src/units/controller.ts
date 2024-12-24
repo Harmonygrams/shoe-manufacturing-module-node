@@ -1,12 +1,18 @@
 import { Request, Response } from 'express'
 import Joi from 'joi'
 import { prisma } from "../lib/prisma";
+import { validateSchema } from '../configs/schema';
 
 // Validation schema
+type Unit = {
+  name : string; 
+  symbol : string; 
+  description : string; 
+}
 const unitSchema = Joi.object({
-  name: Joi.string().required(),
+  name: validateSchema.nameField('Unit name'),
+  symbol: Joi.string().required(),
   description: Joi.string().allow(''),
-  symbol: Joi.string().required()
 })
 
 const updateUnitSchema = Joi.object({
@@ -23,11 +29,14 @@ export async function addUnit(req : Request, res : Response) {
         res.status(400).json({ error: error.details[0].message })
         return 
     }
-
+    const { name, description, symbol } = value; 
     const unit = await prisma.unit.create({
-      data: value
+      data: {
+        name,
+        description, 
+        symbol
+      }
     })
-    
     res.status(201).json({ message : "Unit added successfully"})
     return 
   } catch (error) {

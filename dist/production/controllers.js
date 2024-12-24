@@ -20,6 +20,8 @@ const Joi = require("joi");
 const addProductSchema = Joi.object({
     productionDate: Joi.date().default(new Date()),
     status: Joi.string().required(),
+    orderType: Joi.string().required(),
+    orderId: Joi.number().required(),
     products: Joi.array().items({
         productId: Joi.number(),
         sizeId: Joi.number(),
@@ -147,7 +149,7 @@ function addProduction(req, res) {
                     data: {
                         transaction_date: productionDate,
                         transaction_type: 'production',
-                        manufacturing_status: 'cutting'
+                        manufacturing_status: status,
                     }
                 });
                 //Add product sizes to an array 
@@ -155,14 +157,11 @@ function addProduction(req, res) {
                 for (const product of products) {
                     for (const productSizeId of fetchProductSizeIds) {
                         if (product.sizeId === productSizeId.size_id && product.productId === productSizeId.product_id) {
-                            const productToAdd = {
-                                color_id: product.colorId,
-                                product_size_id: productSizeId.id,
-                                cost: 0,
-                                transaction_id: addTransaction.id,
+                            const productToAdd = Object.assign(Object.assign({ color_id: product.colorId, product_size_id: productSizeId.id, cost: 0, transaction_id: addTransaction.id }, (addTransaction.manufacturing_status === 'finished' && {
+                                quantity: product.quantity,
                                 remaining_quantity: product.quantity,
-                                quantity: product.quantity
-                            };
+                                pending_quantity: 0
+                            })), { pending_quantity: product.quantity });
                             productToAddToSizeItems.push(productToAdd);
                         }
                     }
@@ -171,6 +170,7 @@ function addProduction(req, res) {
                 const appProducts = yield tx.transactionItems.createMany({
                     data: productToAddToSizeItems
                 });
+                //Update sales or manufacu
             }));
             res.status(201).json({ message: 'Successful' });
         }

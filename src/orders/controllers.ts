@@ -3,12 +3,13 @@ import Joi from "joi";
 import { prisma } from "../lib/prisma";
 
 const addSalesOrderSchema = Joi.object({
-    customerId : Joi.number().required().messages({
+    customerId : Joi.number().messages({
         'number.base' : 'Please select a customer', 
         'any.required' : 'Please select a customer'
     }),
     transactionDate : Joi.date().default(new Date()), 
     status : Joi.string().required().messages({'any.required' : 'Specify sales order status', 'string.empty' : 'Specify sales order status'}),
+    orderType : Joi.string().required(),
     products : Joi.array().required().min(1).items({
         productId : Joi.string().required().messages({}), 
         productSizes : Joi.array().items({
@@ -29,6 +30,13 @@ type Product = {
     productId : string, 
     productSizes : ProductSize[]
 }
+type Order = { 
+    customerId: number, 
+    transactionDate: Date, 
+    orderType : 'sale' | 'manufacturing',
+    products: Product[] 
+}
+type OrderStatus = 'pending' | 'processing' | 'fulfilled'
 
 export async function addSalesOrder(req: Request, res: Response) {
     try {
@@ -37,11 +45,7 @@ export async function addSalesOrder(req: Request, res: Response) {
             res.status(400).json({ message: error.details[0].message });
             return 
         }
-        const { customerId, transactionDate, products }: { 
-            customerId: number, 
-            transactionDate: Date, 
-            products: Product[] 
-        } = value;
+        const { customerId, transactionDate, products, orderType }: Order = value;
         const prismaTransaction = await prisma.$transaction(async (tx) => {
             // Get all product IDs for validation
             const getProductIds = products.map(product => parseInt(product.productId));
@@ -73,7 +77,7 @@ export async function addSalesOrder(req: Request, res: Response) {
             // Create the transaction record
             const transaction = await tx.transaction.create({
                 data: {
-                    transaction_type: 'sale',
+                    transaction_type: orderType,
                     sale_status : 'pending',
                     customer_id: customerId,
                     transaction_date: transactionDate,
@@ -94,9 +98,15 @@ export async function addSalesOrder(req: Request, res: Response) {
                                 transaction_id: transaction.id,
                                 product_size_id: productSize.id,
                                 color_id: size.colorId,
-                                quantity: size.quantity,
                                 cost: size.cost, 
-                                remaining_quantity : size.quantity
+                                ...(transaction.sale_status !== 'fulfilled' ?
+                                    {   pending_quantity: size.quantity,
+                                    } : 
+                                    {
+                                        remaining_quantity : size.quantity
+                                    }
+                                ),
+                                quantity : size.quantity,
                             }
                         });
                         transactionItems.push(transactionItem);
@@ -175,9 +185,10 @@ export async function getSalesOrder (req : Request, res: Response) {
                                                                             transaction_type : { 
                                                                                 in : ['adjustment', 'opening_stock', 'purchase']
                                                                             }
-                                                                        }
+                                                                        }, 
                                                                     },
                                                                     select : {
+                                                                        cost : true,
                                                                         remaining_quantity : true, //Quantity remaining in the system
                                                                         transactions : {
                                                                             select : {
@@ -226,7 +237,8 @@ export async function getSalesOrder (req : Request, res: Response) {
                     rawMaterialId : bomListItem.material.id, 
                     quantityPerUnit : bomListItem.quantity,
                     quantityNeeded : Number(bomListItem.quantity) * Number(transactionItem.quantity),
-                    quantityAvailable : bomListItem.material.transactionItems.reduce((init, accum) => init + Number(accum.remaining_quantity), 0)
+                    quantityAvailable : bomListItem.material.transactionItems.reduce((init, accum) => init + Number(accum.remaining_quantity), 0),
+                    materialCost : bomListItem.material.transactionItems.reduce((init, accum )=> init + Number(accum.cost) * Number(bomListItem.quantity), 0)
                 }))).flat(1)
         }))
     }
@@ -238,9 +250,16 @@ export async function getSalesOrder (req : Request, res: Response) {
 }
 export async function getSalesOrders (req : Request, res: Response) {
     try { 
+        const { orderStatus }  = req.query;
+        const orderStatusKey = orderStatus as OrderStatus;
         const getSales = await prisma.transaction.findMany({
             where : {
-                transaction_type : 'sale',
+                ...(orderStatus && {
+                    sale_status : orderStatusKey
+                }),
+                transaction_type : {
+                    in : ['sale', 'manufacturing']
+                },
             },
             orderBy : {
                 transaction_date : 'desc'
@@ -283,7 +302,7 @@ export async function getSalesOrders (req : Request, res: Response) {
         })
         const salesOrder = getSales.map(sales => ({
             id : sales.id,
-            customerName : sales.customer?.customer_type === 'individual' ?  `${sales.customer?.first_name} ${sales.customer?.last_name}` : `${sales.customer?.business_name}`,
+            customerName : sales.transaction_type === 'manufacturing' ? 'In-house' : (sales.customer?.customer_type === 'individual' ?  `${sales.customer?.first_name} ${sales.customer?.last_name}` : `${sales.customer?.business_name}`),
             orderDate : sales.transaction_date,
             status : sales.sale_status,
             products : sales.transaction_items.map(sale => ({

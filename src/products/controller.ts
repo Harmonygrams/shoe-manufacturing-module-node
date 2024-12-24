@@ -31,9 +31,9 @@ export async function addProduct(req: Request, res: Response) {
         const { error, value } = productSchema.validate(req.body);
         if (error) {
             res.status(400).json({ message: error.details[0].message });
-            return 
+            return
         }
-        const { name, unitId, sku, description, sizes} = value;
+        const { name, unitId , description, sizes} = value;
         // Add products 
         const newProduct = await prisma.$transaction(async (tx) => {
             const addProductTodb = await tx.product.create({
@@ -84,7 +84,7 @@ export async function addProduct(req: Request, res: Response) {
                     remaining_quantity : productCostAndQuantities.quantity,
                 }
             })
-            const addTransactionItems = await tx.transactionItems.createMany({
+            await tx.transactionItems.createMany({
                 data : productSizeToId
             })
 
@@ -99,144 +99,72 @@ export async function addProduct(req: Request, res: Response) {
 export async function getProducts(req: Request, res: Response) {
     try {
         const products = await prisma.product.findMany({
-            orderBy: { created_at: 'desc' },
-            include: {
-                unit: {
-                    select: {
-                        name: true,
-                        symbol: true,
-                    },
-                },
-                bom : {
+            select : {
+                id : true, 
+                name : true,
+                selling_price : true,
+                created_at : true,
+                product_sizes : {
                     select : {
-                        bom_list : {
+                        sizes : {
                             select : {
-                                quantity : true,
-                                material : {
-                                    select : { 
-                                        id : true,
-                                        name : true, 
-                                        transactionItems : {
-                                        select : {
-                                            cost : true, 
-                                            quantity : true, 
-                                            transactions : {
-                                                select : {
-                                                    transaction_date : true, 
-                                                    transaction_type : true
-                                                }
-                                            }
-                                        }
-                                    }}
+                                id : true,
+                                name : true,
+                            }
+                        },
+                        transactions : {
+                            select : {
+                                cost : true,
+                                remaining_quantity : true,
+                                transactions : {
+                                    select : {
+                                        transaction_type : true
+                                    }
                                 }
                             }
                         }
                     }
-                }, 
-                product_sizes: {
-                    include: {
-                        sizes: {
-                            select : {
-                                id : true,
-                                name : true, 
-                            }
-                        },
-                        transactions: {
-                            include: {
-                                transactions: {
-                                    select: {
-                                        transaction_type: true,
-                                        transaction_date: true,
-                                        created_at: true,
-                                    },
-                                },
-                            },
-                            orderBy: { created_at: 'desc' },
-                        },
-                    },
                 },
-            },
-        });
-        const processedProducts = products.map((product) => {
-
-            const sizesSummary = product.product_sizes.map((productSize) => {
-                let totalOpeningStock = 0;
-                let totalPurchases = 0;
-                let totalSales = 0;
-                let totalAdjustments = 0;
-                let latestCostPrice = 0;
-
-                productSize.transactions.forEach((transaction) => {
-                    const quantity = transaction.quantity || 0;
-                    const cost = transaction.cost || 0;
-
-                    switch (transaction.transactions?.transaction_type) {
-                        case 'opening_stock':
-                            totalOpeningStock += Number(quantity);
-                            if (cost) latestCostPrice = Number(cost);
-                            break;
-                        case 'purchase':
-                            totalPurchases += Number(quantity);
-                            if (cost) latestCostPrice = Number(cost);
-                            break;
-                        case 'sale':
-                            totalSales += Number(quantity);
-                            break;
-                        case 'adjustment':
-                            totalAdjustments += Number(quantity);
-                            break;
+                unit : {
+                    select : {
+                        name : true
                     }
-                });
-
-                const currentStock =
-                    totalOpeningStock + totalPurchases - totalSales + totalAdjustments;
-
-                return {
-                    id : productSize.sizes?.id,
-                    name: productSize.sizes?.name || 'Unknown',
-                    currentStock,
-                    cost : latestCostPrice
-                    // transaction_summary: {
-                    //     total_opening_stock: totalOpeningStock,
-                    //     total_purchases: totalPurchases,
-                    //     total_sales: totalSales,
-                    //     total_adjustments: totalAdjustments,
-                    // },
-                };
-            });
-
-            const totalStock = sizesSummary.reduce(
-                (sum, size) => sum + size.currentStock,
-                0
-            );
-            const averageCost =
-                sizesSummary.reduce(
-                    (sum, size) => sum + size.cost,
-                    0
-                ) / (sizesSummary.length || 1);
-            
-            const bom = product.bom.map(prodItem => 
-                prodItem.bom_list.map((bomListItem => ({
-                    id : bomListItem.material.id,
-                    name : bomListItem.material.name, 
-                    quantityNeeded : bomListItem.quantity, 
-                    quantityAvailable : bomListItem.material.transactionItems.map(bomListItem => bomListItem.quantity).reduce((initial, accum) => (initial + Number(accum)), 0)
-                })))).flat(2);
-            return {
-                id: product.id,
-                name: product.name,
-                description: product.description,
-                selling_price: product.selling_price,
-                unit: product.unit?.symbol || 'N/A',
-                bom : bom,
-                // total_stock: totalStock,
-                // average_cost: Math.round(averageCost),
-                sizes: sizesSummary,
-                created_at: product.created_at,
-                updated_at: product.updated_at,
-            };
-        });
-
+                }
+            }
+        })
+        const processedProducts = products.map(product => {
+            const sizesSummary = product.product_sizes.map(productSizes  => {
+                //
+                return ({
+                    id : productSizes.sizes?.id, 
+                    name : productSizes.sizes?.name || 'Unknown',
+                    currentStock : 0, 
+                    cost : 0,
+                })
+            })
+            return({
+                id : product.id,  
+                name : product.name, 
+                unit : product.unit?.name, 
+                cost : product.product_sizes.map(productSize => productSize.transactions.filter(element => element.transactions?.transaction_type === 'manufacturing' || element.transactions?.transaction_type === 'adjustment')).map(element => element.reduce((init, accum) => init + Number(accum.cost), 0)),
+                sellingPrice : product.selling_price,
+                data : product.product_sizes.map(productSize => {
+                    const remainingQuantity = productSize.transactions.filter(transaction => Number(transaction.remaining_quantity) > 0).reduce((init, accum) => init + Number(accum.remaining_quantity), 0)
+                    return ({ 
+                        size : productSize.sizes?.name,
+                        remainingQuantity,
+                    })
+                }),
+                quantity : product.product_sizes.map(productSize => {
+                    const remainingQuantity = productSize.transactions.filter(transaction => Number(transaction.remaining_quantity) > 0).reduce((init, accum) => init + Number(accum.remaining_quantity), 0)
+                    return ({ 
+                        size : productSize.sizes?.name,
+                        remainingQuantity,
+                    })
+                }).reduce((innit, accum) => innit + accum.remainingQuantity, 0),
+                sizes : sizesSummary,
+            })
+        })
         res.status(200).json(processedProducts);
     } catch (err : any) {
         console.error('Error in getProducts:', {
@@ -250,7 +178,7 @@ export async function getProducts(req: Request, res: Response) {
 export async function getProduct(req: Request, res: Response) {
     try {
         const { id } = req.params;
-
+        
         // Validate ID is a number
         if (isNaN(Number(id))) {
             res.status(400).json({ message: 'Invalid ID format' });
@@ -261,7 +189,11 @@ export async function getProduct(req: Request, res: Response) {
             where: {
                 id: Number(id)
             },
-            include: {
+            select: {
+                id : true, 
+                name : true, 
+                description : true, 
+                selling_price : true,
                 unit: {
                     select: {
                         name: true,
@@ -269,10 +201,20 @@ export async function getProduct(req: Request, res: Response) {
                     }
                 },
                 product_sizes: {
-                    include: {
+                    select: {
+                        id : true,
+                        product_id : true, 
                         sizes: true, // Changed from size to sizes based on schema
                         transactions: {
-                            include: {
+                            select: {
+                                color : {
+                                    select : {
+                                        name : true,
+                                    }
+                                },
+                                cost : true,
+                                remaining_quantity : true,
+                                product_size_id : true,
                                 transactions: {
                                     select: {
                                         transaction_type: true,
@@ -287,9 +229,12 @@ export async function getProduct(req: Request, res: Response) {
                     }
                 },
                 bom: {
-                    include: {
+                    select: {
+                        bom_date : true,
+                        quantity : true,
                         bom_list: {
-                            include: {
+                            select: {
+                                quantity : true,
                                 material: {
                                     select : {
                                         name : true, 
@@ -326,35 +271,27 @@ export async function getProduct(req: Request, res: Response) {
             let totalSales = 0;
             let totalAdjustments = 0;
             let latestCostPrice = 0;
-
-            // Calculate totals for each transaction type
-            productSize.transactions.forEach((item : any) => {
-                const quantity = item.quantity || 0;
-                
-                switch (item.transactions.transaction_type) {
-                    case 'opening_stock':
-                        totalOpeningStock += quantity;
-                        if (item.cost) latestCostPrice = item.cost;
-                        break;
-                    case 'purchase':
-                        totalPurchases += quantity;
-                        if (item.cost) latestCostPrice = item.cost;
-                        break;
-                    case 'sale':
-                        totalSales += quantity;
-                        break;
-                    case 'adjustment':
-                        totalAdjustments += quantity;
-                        break;
-                }
-            });
-
-            const currentStock = totalOpeningStock + totalPurchases - totalSales + totalAdjustments;
+            
+            // Find the latest transaction with a cost
+            const latestTransaction = productSize.transactions
+                .sort((a, b) => new Date(b.transactions?.transaction_date || 0).getTime() - 
+                                new Date(a.transactions?.transaction_date || 0).getTime())
+                .find(t => t.cost !== null);
+            
+            latestCostPrice = Number(latestTransaction?.cost) || 0;
+            //Calculating quantity for this size 
+            const quantity = product
+                .product_sizes.filter(size => size.product_id === product.id)
+                .map(transItem => transItem.transactions)
+                .find(tran => {
+                    const quantityOfThisProduct = tran.filter(t => t.product_size_id === productSize.id)
+                    return quantityOfThisProduct.length
+                })?.reduce((init, sum) => init + Number(sum.remaining_quantity), 0)
 
             return {
                 size: productSize.sizes?.name,
-                currentStock,
-                latestCostPrice,
+                quantity,
+                cost : latestCostPrice,
                 transaction_summary: {
                     total_opening_stock: totalOpeningStock,
                     total_purchases: totalPurchases,
@@ -380,8 +317,6 @@ export async function getProduct(req: Request, res: Response) {
                     quantityAvailable : (item.material.transactionItems.map(transactionItem => transactionItem.quantity)).reduce((prev, accum) => prev + Number(accum), 0)
                 }))
             })),
-            created_at: product.created_at,
-            updated_at: product.updated_at
         };
 
         res.status(200).json(processedProduct);

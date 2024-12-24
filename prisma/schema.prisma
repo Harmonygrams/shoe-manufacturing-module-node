@@ -130,6 +130,7 @@ model TransactionItems {
   id Int @id @default(autoincrement())
   quantity Decimal @default(0.0)
   remaining_quantity Decimal @default(0.0)
+  pending_quantity Decimal @default(0.0)
   cost Decimal @default(0.0)
   material_id Int? //Foreign key for raw material
   product_size_id Int? //Foreign key for product 
@@ -165,10 +166,12 @@ model BillOfMaterialsList {
 
 enum TransactionType {
   purchase
-  sale 
+  sale
+  manufacturing
   adjustment
-  opening_stock 
+  opening_stock
   production
+  bom
 }
 
 enum CustomerType {
@@ -183,12 +186,11 @@ enum SupplierType {
 enum SalesStatus {
   pending 
   processing
-  fullfilled
+  fulfilled
 }
 enum ManufacturingStatus {
   cutting
   sticking
   lasting
-  finishing
-  delivery
+  finished
 }

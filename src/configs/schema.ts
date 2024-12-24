@@ -13,7 +13,7 @@ export const validateSchema = {
         return Joi.number().min(1).required().messages({'any.required' : `Quantity must be equal or greater than 1`, 'number.base' : `Quantity must be equal or greater than 1`, 'number.min' : `Quantity must be equal or greater than 1`})
     },
     cost : function () {
-        return Joi.number().precision(2).min(0).messages({ 'number.min' : 'Cost price must be equal or greater than 0', 'number.precision' : "Invalid cost price", 'any.required' : "Cost price required", 'number.base' : 'Invalid cost price'})
+        return Joi.number().precision(2).min(0).required().messages({ 'number.min' : 'Cost price must be equal or greater than 0', 'number.precision' : "Invalid cost price", 'any.required' : "Cost price required", 'number.base' : 'Invalid cost price'})
     }, 
     arrayField : function (fieldName : string){
         return Joi.array().min(1).required().messages({'array.base' : `Please select at least one ${fieldName}`, 'any.required' : `Please select at least one ${fieldName}`, 'array.min' : `Please select at least one ${fieldName}`})
