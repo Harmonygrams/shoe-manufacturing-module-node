@@ -17,6 +17,7 @@ exports.getProducts = getProducts;
 exports.getProduct = getProduct;
 exports.updateProduct = updateProduct;
 exports.deleteProduct = deleteProduct;
+exports.fetchProductsForInvoicing = fetchProductsForInvoicing;
 const joi_1 = __importDefault(require("joi"));
 const prisma_1 = require("../lib/prisma");
 // Validation schemas
@@ -498,6 +499,87 @@ function deleteProduct(req, res) {
             else {
                 res.status(500).json({ message: 'Server error' });
             }
+        }
+    });
+}
+function fetchProductsForInvoicing(req, res) {
+    return __awaiter(this, void 0, void 0, function* () {
+        try {
+            const products = yield prisma_1.prisma.product.findMany({
+                select: {
+                    id: true,
+                    name: true,
+                    selling_price: true,
+                    product_sizes: {
+                        select: {
+                            sizes: {
+                                select: {
+                                    id: true,
+                                    name: true
+                                }
+                            },
+                            transactions: {
+                                where: {
+                                    remaining_quantity: {
+                                        gt: 0
+                                    }
+                                },
+                                select: {
+                                    remaining_quantity: true,
+                                    cost: true,
+                                    color: {
+                                        select: {
+                                            id: true,
+                                            name: true
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+            const processedProducts = products.map(product => {
+                const rawSizes = product.product_sizes.flatMap(size => size.transactions
+                    .filter(trans => trans.color && Number(trans.remaining_quantity) > 0)
+                    .map(trans => {
+                    var _a, _b, _c, _d;
+                    return ({
+                        sizeId: (_a = size.sizes) === null || _a === void 0 ? void 0 : _a.id,
+                        sizeName: (_b = size.sizes) === null || _b === void 0 ? void 0 : _b.name,
+                        colorId: (_c = trans.color) === null || _c === void 0 ? void 0 : _c.id,
+                        color: (_d = trans.color) === null || _d === void 0 ? void 0 : _d.name,
+                        quantity: Number(trans.remaining_quantity),
+                        cost: Number(trans.cost)
+                    });
+                }));
+                // Combine duplicates
+                const combinedSizes = rawSizes.reduce((acc, curr) => {
+                    const existing = acc.find(item => item.sizeId === curr.sizeId &&
+                        item.colorId === curr.colorId);
+                    if (existing) {
+                        existing.quantity += curr.quantity;
+                        if (curr.cost > 0) {
+                            existing.cost = curr.cost;
+                        }
+                    }
+                    else {
+                        acc.push(Object.assign({}, curr));
+                    }
+                    return acc;
+                }, []);
+                return {
+                    name: product.name,
+                    id: product.id,
+                    sellingPrice: Number(product.selling_price),
+                    sizes: combinedSizes
+                };
+            }).filter(product => product.sizes.length > 0);
+            res.status(200).json(processedProducts);
+        }
+        catch (err) {
+            console.error('Error in fetchProductsForInvoicing:', err);
+            res.status(500).json({ message: 'Server error occurred while fetching products' });
         }
     });
 }

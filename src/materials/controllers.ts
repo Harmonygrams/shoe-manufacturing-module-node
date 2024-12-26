@@ -52,7 +52,6 @@ const updateMaterialSchema = Joi.object({
 // Add a new material
 export async function addMaterial(req: Request, res: Response) {
     try {
-        console.log(req.body)
         const { error, value } = materialSchema.validate(req.body);
         if (error) {
             res.status(400).json({ message: error.details[0].message });

@@ -11,6 +11,7 @@ exports.productRouter = router;
 router
     .post('/', controller_1.addProduct)
     .get('/', controller_1.getProducts)
+    .get('/invoicing', controller_1.fetchProductsForInvoicing)
     .get('/:id', controller_1.getProduct)
     .put('/:id', controller_1.updateProduct)
     .delete('/:id', controller_1.deleteProduct);

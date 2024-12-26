@@ -175,20 +175,17 @@ export async function addProduction (req : Request, res: Response) {
             }
             // Update the material quantity on the database 
             const addTransaction = await tx.transaction.create({
-                data : {
-                    transaction_date : productionDate,
-                    transaction_type : 'production', 
-                    manufacturing_status : status,
+                data: {
+                    transaction_date: productionDate,
+                    transaction_type: 'production',
+                    manufacturing_status: status,
+                    manufaction_costs: {
+                        create: productionCosts.map(cost => ({
+                            name: String(cost.cost),
+                            transaction_id: undefined // This will be automatically set by the relation
+                        }))
+                    }
                 }
-            })
-
-            // Add manufacturing costs
-            const manufacturingCosts = await tx.manufacturingCostTransaction.createMany({
-                data: productionCosts.map(cost => ({
-                    cost_name_id: cost.costId,
-                    cost: cost.cost,
-                    manufacturing_cost_id: addTransaction.id
-                }))
             });
 
             // Calculate total manufacturing cost
@@ -278,13 +275,9 @@ export async function getProduction(req: Request, res: Response) {
                 manufacturing_status: true,
                 manufaction_costs: {
                     select: {
-                        cost: true,
-                        cost_name: {
-                            select: {
-                                name: true,
-                                id: true
-                            }
-                        }
+                        id : true,
+                        cost : true,
+                        name : true,
                     }
                 },
                 transaction_items: {
@@ -346,8 +339,8 @@ export async function getProduction(req: Request, res: Response) {
             date: production.transaction_date,
             status: production.manufacturing_status,
             manufacturingCosts: production.manufaction_costs.map(cost => ({
-                id: cost.cost_name.id,
-                name: cost.cost_name.name,
+                id: cost.id,
+                name: cost.name,
                 cost: Number(cost.cost)
             })),
             products: production.transaction_items

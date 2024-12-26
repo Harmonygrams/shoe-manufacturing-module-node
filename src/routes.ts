@@ -12,6 +12,8 @@ import { colorRouter } from './colors/routes';
 import { ordersRouter } from './orders/routes';
 import { manufacturingRoutes } from './manufacturing/routes';
 import { purchaseRouter } from './purchase/routes';
+import { invoiceRouter } from './invoices/routes';
+import { manufacturingCostRouter } from './manufacturing-cost/routes';
 const router = express.Router();
 
 router.use('/products', productRouter)
@@ -26,6 +28,8 @@ router.use('/bom', bomRouter)
 router.use('/orders', ordersRouter)
 router.use('/manufacturing', manufacturingRoutes)
 router.use('/purchases', purchaseRouter)
+router.use('/invoices', invoiceRouter) 
+router.use('/manufacturing-costs', manufacturingCostRouter)
 
 router.use('/', (req : Request, res : Response) => {res.status(200).json({message : 'Server in good health'})})
 

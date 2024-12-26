@@ -36,7 +36,7 @@ CREATE TABLE `RawMaterials` (
     `name` VARCHAR(191) NOT NULL,
     `description` VARCHAR(191) NULL,
     `unit_id` INTEGER NULL,
-    `reorder_point` INTEGER NULL,
+    `reorder_point` DECIMAL(65, 30) NOT NULL DEFAULT 0.0,
     `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updated_at` DATETIME(3) NOT NULL,
 
@@ -48,13 +48,11 @@ CREATE TABLE `Product` (
     `id` INTEGER NOT NULL AUTO_INCREMENT,
     `name` VARCHAR(191) NOT NULL,
     `unit_id` INTEGER NULL,
-    `selling_price` INTEGER NOT NULL DEFAULT 0,
+    `selling_price` DECIMAL(65, 30) NOT NULL DEFAULT 0,
     `description` VARCHAR(191) NULL,
-    `sku` VARCHAR(191) NULL,
     `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updated_at` DATETIME(3) NOT NULL,
 
-    UNIQUE INDEX `Product_sku_key`(`sku`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
@@ -102,12 +100,13 @@ CREATE TABLE `Unit` (
 -- CreateTable
 CREATE TABLE `Transaction` (
     `id` INTEGER NOT NULL AUTO_INCREMENT,
-    `transaction_type` ENUM('purchase', 'sale', 'adjustment', 'opening_stock', 'production') NOT NULL,
+    `transaction_type` ENUM('purchase', 'sale', 'manufacturing', 'adjustment', 'opening_stock', 'production', 'bom') NOT NULL,
     `customer_id` INTEGER NULL,
     `supplier_id` INTEGER NULL,
+    `payment_method` VARCHAR(191) NULL,
     `transaction_date` DATETIME(3) NOT NULL,
-    `sale_status` ENUM('pending', 'processing', 'fullfilled') NULL,
-    `manufacturing_status` ENUM('cutting', 'sticking', 'lasting', 'finishing', 'delivery') NULL,
+    `sale_status` ENUM('pending', 'processing', 'fulfilled') NULL,
+    `manufacturing_status` ENUM('cutting', 'sticking', 'lasting', 'finished') NULL,
     `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updated_at` DATETIME(3) NOT NULL,
 
@@ -118,18 +117,7 @@ CREATE TABLE `Transaction` (
 CREATE TABLE `ManufacturingCost` (
     `id` INTEGER NOT NULL AUTO_INCREMENT,
     `name` VARCHAR(191) NOT NULL,
-
-    PRIMARY KEY (`id`)
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-
--- CreateTable
-CREATE TABLE `ManufacturingCostTransaction` (
-    `id` INTEGER NOT NULL AUTO_INCREMENT,
-    `cost` INTEGER NOT NULL,
-    `cost_name_id` INTEGER NOT NULL,
-    `manufacturing_cost_id` INTEGER NULL,
-    `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    `updated_at` DATETIME(3) NOT NULL,
+    `transaction_id` INTEGER NULL,
 
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
@@ -137,9 +125,10 @@ CREATE TABLE `ManufacturingCostTransaction` (
 -- CreateTable
 CREATE TABLE `TransactionItems` (
     `id` INTEGER NOT NULL AUTO_INCREMENT,
-    `quantity` INTEGER NOT NULL,
-    `remaining_quantity` INTEGER NOT NULL,
-    `cost` INTEGER NOT NULL,
+    `quantity` DECIMAL(65, 30) NOT NULL DEFAULT 0.0,
+    `remaining_quantity` DECIMAL(65, 30) NOT NULL DEFAULT 0.0,
+    `pending_quantity` DECIMAL(65, 30) NOT NULL DEFAULT 0.0,
+    `cost` DECIMAL(65, 30) NOT NULL DEFAULT 0.0,
     `material_id` INTEGER NULL,
     `product_size_id` INTEGER NULL,
     `color_id` INTEGER NULL,
@@ -154,7 +143,7 @@ CREATE TABLE `TransactionItems` (
 CREATE TABLE `BillOfMaterials` (
     `id` INTEGER NOT NULL AUTO_INCREMENT,
     `product_id` INTEGER NOT NULL,
-    `quantity` INTEGER NOT NULL,
+    `quantity` DECIMAL(65, 30) NOT NULL DEFAULT 0.0,
     `bom_date` DATETIME(3) NOT NULL,
     `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updated_at` DATETIME(3) NOT NULL,
@@ -167,7 +156,7 @@ CREATE TABLE `BillOfMaterialsList` (
     `id` INTEGER NOT NULL AUTO_INCREMENT,
     `bom_id` INTEGER NOT NULL,
     `material_id` INTEGER NOT NULL,
-    `quantity` INTEGER NOT NULL,
+    `quantity` DECIMAL(65, 30) NOT NULL DEFAULT 0.0,
     `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updated_at` DATETIME(3) NOT NULL,
 
@@ -193,10 +182,7 @@ ALTER TABLE `Transaction` ADD CONSTRAINT `Transaction_customer_id_fkey` FOREIGN 
 ALTER TABLE `Transaction` ADD CONSTRAINT `Transaction_supplier_id_fkey` FOREIGN KEY (`supplier_id`) REFERENCES `Supplier`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE `ManufacturingCostTransaction` ADD CONSTRAINT `ManufacturingCostTransaction_cost_name_id_fkey` FOREIGN KEY (`cost_name_id`) REFERENCES `ManufacturingCost`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE `ManufacturingCostTransaction` ADD CONSTRAINT `ManufacturingCostTransaction_manufacturing_cost_id_fkey` FOREIGN KEY (`manufacturing_cost_id`) REFERENCES `Transaction`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE `ManufacturingCost` ADD CONSTRAINT `ManufacturingCost_transaction_id_fkey` FOREIGN KEY (`transaction_id`) REFERENCES `Transaction`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE `TransactionItems` ADD CONSTRAINT `TransactionItems_transaction_id_fkey` FOREIGN KEY (`transaction_id`) REFERENCES `Transaction`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;

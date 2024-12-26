@@ -101,10 +101,11 @@ model Transaction {
   transaction_type TransactionType
   customer_id Int? //Foreign key for customer
   supplier_id Int?
+  payment_method String?
   transaction_date DateTime
   sale_status SalesStatus?
   manufacturing_status ManufacturingStatus?
-  manufaction_costs ManufacturingCostTransaction[]
+  manufaction_costs ManufacturingCost[]
   transaction_items TransactionItems[]
   customer Customer? @relation(fields: [customer_id], references: [id])
   supplier Supplier? @relation(fields: [supplier_id], references: [id])
@@ -114,18 +115,11 @@ model Transaction {
 model ManufacturingCost {
   id Int @id @default(autoincrement())
   name String
-  manufacturing_transaction_costs ManufacturingCostTransaction[]
-}
-model ManufacturingCostTransaction { 
-  id Int @id @default(autoincrement())
   cost Decimal @default(0.0)
-  cost_name_id Int
-  manufacturing_cost_id Int?
-  cost_name ManufacturingCost @relation(fields: [cost_name_id], references: [id])
-  manufacturing_cost_transaction Transaction? @relation(fields: [manufacturing_cost_id], references: [id])
-  created_at DateTime @default(now()) 
-  updated_at DateTime @updatedAt
+  transaction_id Int?
+  transactions Transaction? @relation(fields: [transaction_id], references: [id])
 }
+
 model TransactionItems {
   id Int @id @default(autoincrement())
   quantity Decimal @default(0.0)

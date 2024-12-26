@@ -182,15 +182,13 @@ function addProduction(req, res) {
                         transaction_date: productionDate,
                         transaction_type: 'production',
                         manufacturing_status: status,
+                        manufaction_costs: {
+                            create: productionCosts.map(cost => ({
+                                name: String(cost.cost),
+                                transaction_id: undefined // This will be automatically set by the relation
+                            }))
+                        }
                     }
-                });
-                // Add manufacturing costs
-                const manufacturingCosts = yield tx.manufacturingCostTransaction.createMany({
-                    data: productionCosts.map(cost => ({
-                        cost_name_id: cost.costId,
-                        cost: cost.cost,
-                        manufacturing_cost_id: addTransaction.id
-                    }))
                 });
                 // Calculate total manufacturing cost
                 const totalManufacturingCost = productionCosts.reduce((sum, cost) => sum + Number(cost.cost), 0);
@@ -277,13 +275,9 @@ function getProduction(req, res) {
                     manufacturing_status: true,
                     manufaction_costs: {
                         select: {
+                            id: true,
                             cost: true,
-                            cost_name: {
-                                select: {
-                                    name: true,
-                                    id: true
-                                }
-                            }
+                            name: true,
                         }
                     },
                     transaction_items: {
@@ -295,6 +289,7 @@ function getProduction(req, res) {
                             material_id: true,
                             raw_material: {
                                 select: {
+                                    id: true,
                                     name: true,
                                     unit: {
                                         select: {
@@ -342,8 +337,8 @@ function getProduction(req, res) {
                 date: production.transaction_date,
                 status: production.manufacturing_status,
                 manufacturingCosts: production.manufaction_costs.map(cost => ({
-                    id: cost.cost_name.id,
-                    name: cost.cost_name.name,
+                    id: cost.id,
+                    name: cost.name,
                     cost: Number(cost.cost)
                 })),
                 products: production.transaction_items
@@ -362,13 +357,14 @@ function getProduction(req, res) {
                     });
                 }),
                 rawMaterials: production.transaction_items
-                    .filter(item => item.raw_material)
+                    .filter(item => item.material_id !== null && item.raw_material)
                     .map(item => {
-                    var _a, _b, _c;
+                    var _a, _b, _c, _d;
                     return ({
-                        name: (_a = item.raw_material) === null || _a === void 0 ? void 0 : _a.name,
-                        quantity: Number(item.quantity),
-                        unit: (_c = (_b = item.raw_material) === null || _b === void 0 ? void 0 : _b.unit) === null || _c === void 0 ? void 0 : _c.symbol
+                        id: (_a = item.raw_material) === null || _a === void 0 ? void 0 : _a.id,
+                        name: (_b = item.raw_material) === null || _b === void 0 ? void 0 : _b.name,
+                        quantity: Number(item.quantity) || 0,
+                        unit: (_d = (_c = item.raw_material) === null || _c === void 0 ? void 0 : _c.unit) === null || _d === void 0 ? void 0 : _d.symbol
                     });
                 })
             };
