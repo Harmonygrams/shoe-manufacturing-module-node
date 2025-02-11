@@ -11,4 +11,7 @@ exports.manufacturingRoutes = router;
 router
     .post('/', controllers_1.addProduction)
     .get('/', controllers_1.getProductions)
-    .get('/:id', controllers_1.getProduction);
+    .get('/:id', controllers_1.getProduction)
+    .get('/update-metadata/:id', controllers_1.updateProductionStatusMetadata)
+    .put('/update-metadata/:id', controllers_1.updateProductionStatus)
+    .delete('/:id', controllers_1.deleteProduction);

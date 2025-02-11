@@ -5,7 +5,7 @@ import Joi from 'joi';
 
 const manufacturingCostSchema = Joi.object({
     name: Joi.string().required().messages({
-        'string.empty': 'Cost name is required',
+            
         'any.required': 'Cost name is required'
     }),
     amount : validateSchema.cost(),
@@ -121,23 +121,12 @@ export async function deleteManufacturingCost(req: Request, res: Response) {
 
         // Check if cost exists and is being used in any transactions
         const cost = await prisma.manufacturingCost.findUnique({
-            where: { id: Number(id) },
-            include: {
-                transactions: {}
-            }
+            where: { id: Number(id) }
         });
         if (!cost) {
             res.status(404).json({ message: 'Manufacturing cost not found' });
             return 
         }
-
-        if (cost.transactions && cost.transactions) {
-            res.status(400).json({ 
-                message: 'Cannot delete manufacturing cost that has been used in transactions' 
-            });
-            return 
-        }
-
         await prisma.manufacturingCost.delete({
             where: { id: Number(id) }
         });

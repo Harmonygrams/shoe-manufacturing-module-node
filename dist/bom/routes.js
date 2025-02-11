@@ -5,10 +5,12 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.bomRouter = void 0;
 const express_1 = __importDefault(require("express"));
-const controllerts_1 = require("./controllerts");
+const controller_1 = require("./controller");
 const router = express_1.default.Router();
 exports.bomRouter = router;
 router
-    .post('/', controllerts_1.addBillOfMaterial) // Create new bom
-    .get('/', controllerts_1.getBillsOfMaterial)
-    .get('/:id', controllerts_1.getBillOfMaterial);
+    .post('/', controller_1.addBillOfMaterial) // Create new bom
+    .get('/', controller_1.getBillsOfMaterial)
+    .get('/:id', controller_1.getBillOfMaterial)
+    .put('/:id', controller_1.editBillOfMaterial)
+    .delete('/:id', controller_1.deleteBillOfMaterial);

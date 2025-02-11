@@ -15,12 +15,12 @@ type Product = {
 }
 type Status = 'cutting' | 'sticking' | 'lasting' | 'finished'
 
-type ProductionLayload = { products : Product[], rawMaterials : RawMaterial[], status : Status, productionDate : Date, orderType : 'manufacturing' | 'sale', orderId : number, productionCosts: { costId: number, cost: number }[] }
+type ProductionLayload = { products : Product[], rawMaterials : RawMaterial[], status : Status, productionDate : Date, orderType : 'manufacturing' | 'sale', orderId : number, productionCosts: { id: number, amount: number }[] }
 const addProductSchema = Joi.object({
     productionDate : Joi.date().default(new Date()),
-    status : Joi.string().required(),
+    status : Joi.string().required().messages({'string.empty' : 'Please specify status of production', 'any.required' : 'Please specify status of production'}),
     orderType : Joi.string().required().messages({'string.empty' : 'Select a pending production order', 'any.required' : 'Select a pending production order'}),
-    orderId : Joi.number().required(),
+    orderId : Joi.number().required().messages({'any.required' : "Please select any pending order", "number.base" : "Please select any pending order"}),
     products : Joi.array().items({
         productId : Joi.number(),
         sizeId : Joi.number(), 
@@ -33,8 +33,9 @@ const addProductSchema = Joi.object({
         quantity : Joi.number(),
     }), 
     productionCosts: Joi.array().items({
-        costId: Joi.number().required(),
-        cost: Joi.number().required()
+        name : Joi.string(),
+        id: Joi.number().required(),
+        amount: Joi.number().required()
     }).required()
 })
 export async function addProduction (req : Request, res: Response) {
@@ -179,29 +180,29 @@ export async function addProduction (req : Request, res: Response) {
                     transaction_date: productionDate,
                     transaction_type: 'production',
                     manufacturing_status: status,
-                    manufaction_costs: {
-                        create: productionCosts.map(cost => ({
-                            name: String(cost.cost),
-                            transaction_id: undefined // This will be automatically set by the relation
-                        }))
-                    }
+                    order_id: orderId,
                 }
             });
-
+            // Insert the manufacturing costs 
+            const manufacturingCosts = productionCosts.map(cost => ({
+                cost: cost.amount,
+                manufacturing_cost_id: cost.id,
+                transaction_id: addTransaction.id
+            }));
+            await tx.manufacturingCostItems.createMany({
+                data: manufacturingCosts
+            });
             // Calculate total manufacturing cost
-            const totalManufacturingCost = productionCosts.reduce((sum, cost) => sum + Number(cost.cost), 0);
-            const manufacturingCostPerUnit = totalManufacturingCost / products.reduce((sum, product) => sum + product.quantity, 0);
-
+            const totalManufacturingCost = productionCosts.reduce((sum, cost) => sum + Number(cost.amount), 0);
             //Add product sizes to an array 
             const productToAddToSizeItems = []
             for(const product of products){
                 for(const productSizeId of fetchProductSizeIds){
                     if(product.sizeId === productSizeId.size_id && product.productId === productSizeId.product_id){
-                        console.log(product.quantity)
                         const productToAdd = {
                             color_id : product.colorId, 
                             product_size_id : productSizeId.id, 
-                            cost : Number(product.unitCost) + manufacturingCostPerUnit, // Add manufacturing cost per unit
+                            cost : Number(product.unitCost), // + totalManufacturingCost, // Add manufacturing cost per unit
                             transaction_id : addTransaction.id, 
                             ...(addTransaction.manufacturing_status === 'finished' && {
                                 quantity : product.quantity, 
@@ -243,19 +244,29 @@ export async function getProductions (req:Request, res:Response) {
             select : {
                 id : true,
                 transaction_date : true, 
-                manufaction_costs : true, 
+                manufaction_costs_items : true, 
                 manufacturing_status : true,
+                transaction_items : true,
             },
             orderBy : {
                 created_at : 'desc'
             }
         })
-        const processProductions = fetchProductions.map(product => ({
-            id : product.id, 
-            date : product.transaction_date, 
-            cost : product.manufaction_costs.reduce((init, accum) => init + Number(accum.cost), 0), 
-            status : product.manufacturing_status
-        }))
+        const processProductions = fetchProductions.map(production => {
+            // Calculate the other expenses 
+            const totalQuantity = production.transaction_items.reduce((init, accum) => init + Number(accum.pending_quantity), 0)
+            const costOfProduction = production.transaction_items.reduce((init, accum) => (init + Number(accum.cost)), 0)
+            console.log(production.manufaction_costs_items)
+            const otherExpenses = production.manufaction_costs_items.reduce((init, accum) => init + Number(accum.cost), 0)
+            console.log('total pairs :', totalQuantity)
+            console.log('total cost of raw materials ', costOfProduction)
+            console.log('other expenses ', otherExpenses)
+            return ({
+            id : production.id, 
+            date : production.transaction_date, 
+            cost : costOfProduction + otherExpenses,
+            status : production.manufacturing_status
+        })})
         res.status(200).json(processProductions);
     }catch(err){
         res.status(500).json({message: "Server error occurred "})
@@ -273,11 +284,14 @@ export async function getProduction(req: Request, res: Response) {
                 id: true,
                 transaction_date: true,
                 manufacturing_status: true,
-                manufaction_costs: {
+                manufaction_costs_items: {
                     select: {
-                        id : true,
-                        cost : true,
-                        name : true,
+                        manufacturing_costs : {
+                            select : {
+                                name : true,
+                                cost : true
+                            }
+                        }
                     }
                 },
                 transaction_items: {
@@ -338,11 +352,6 @@ export async function getProduction(req: Request, res: Response) {
             id: production.id,
             date: production.transaction_date,
             status: production.manufacturing_status,
-            manufacturingCosts: production.manufaction_costs.map(cost => ({
-                id: cost.id,
-                name: cost.name,
-                cost: Number(cost.cost)
-            })),
             products: production.transaction_items
                 .filter(item => item.product_size)
                 .map(item => ({
@@ -371,7 +380,175 @@ export async function getProduction(req: Request, res: Response) {
     }
 }
 export async function updateProduction (req:Request, res:Response) {}
-export async function deleteProduction (req:Request, res:Response) {}
+export async function deleteProduction(req: Request, res: Response) {
+    try {
+        const { id } = req.params;
+
+        // Validate the ID
+        if (isNaN(Number(id))) {
+            res.status(400).json({ message: 'Invalid production ID' });
+            return;
+        }
+
+        // Check if the production record exists
+        const production = await prisma.transaction.findUnique({
+            where: { id: Number(id), transaction_type: 'production' },
+            select : {
+                order_id : true
+            }
+        });
+        if (!production) {
+            res.status(404).json({ message: 'Production record not found' });
+            return;
+        }
+        //update the sales order status
+        if(!production.order_id){
+            res.status(404).json({ message: 'Order record not found' });
+            return;
+        }
+        await prisma.transaction.update({
+            where : {
+                id : production.order_id
+            },
+            data : {
+                sale_status : 'pending'
+            }
+        })
+        // Delete the production record
+        await prisma.transaction.delete({
+            where: { id: Number(id) }
+        });
+
+        res.status(200).json({ message: 'Production record deleted successfully' });
+    } catch (err) {
+        console.error('Error in deleteProduction:', err);
+        res.status(500).json({ message: 'Failed to delete production record' });
+    }
+}
+export async function updateProductionStatus (req:Request, res:Response) {
+    try{
+        const { id } = req.params;
+        const { status, selectedManufacturingCosts } = req.body;
+        const production = await prisma.transaction.findUnique({
+            where : {
+                id : Number(id)
+            }
+        })
+        if(!production){
+            res.status(404).json({ message : 'Production record not found'})
+            return 
+        }
+        const updateTransactionTx = await prisma.$transaction(async (tx) => {
+            //Update transaction status 
+            const updateTransaction = await tx.transaction.update({
+                where : {
+                    id : Number(id)
+                }, 
+                data : {
+                    manufacturing_status : status, 
+                }
+            })
+            // Update the manufacturing costs items
+             const manufacturingCosts = selectedManufacturingCosts.map((cost : { id : number, cost : number}) => ({
+                cost: cost.cost,
+                manufacturing_cost_id: cost.id,
+                transaction_id: updateTransaction.id
+            }));
+            await tx.manufacturingCostItems.createMany({
+                data : manufacturingCosts
+            })
+            if(status === "finished"){
+                //Fetch list of all products in the production 
+                const transactionItems = await tx.transactionItems.findMany({
+                    where : {
+                        transaction_id : Number(id)
+                    }
+                })
+                if(!transactionItems) {
+                    throw new Error("Transaction items not found")
+                }
+                const processedTransactionItems = transactionItems.map(transactionItem => ({
+                    pending_quantity : 0, 
+                    remaining_quantity : transactionItem.pending_quantity,
+                    quantity: 0,
+                    cost: transactionItem.cost,
+                    product_size_id: transactionItem.product_size_id,
+                    color_id: transactionItem.color_id,
+                    transaction_id : transactionItem.transaction_id
+                }))
+                // Delete all the matches
+                await tx.transactionItems.deleteMany({
+                    where : {
+                        transaction_id : Number(id)
+                    }
+                })
+                // Create new and fresh transactions 
+                await tx.transactionItems.createMany({
+                    data : processedTransactionItems
+                })
+            }
+        })
+        res.status(200).json({ message : 'Status updated successfully'})
+    }catch(err){
+        console.log(err)
+        res.status(500).json({ message : 'Server error occurred'})
+    }
+}
+export async function updateProductionStatusMetadata (req:Request, res:Response) {
+    try{
+        const { id } = req.params;
+        const production = await prisma.transaction.findUnique({
+            where : {
+                id : Number(id)
+            }, 
+            select : {
+                manufacturing_status : true,
+                manufaction_costs_items : {
+                    select : {
+                        manufacturing_cost_id : true, 
+                        cost : true,
+                    }
+                },
+                transaction_items : {
+                    select : {
+                        cost : true,
+                        pending_quantity : true,
+                    }
+                }
+            }
+        })
+        // Fetch manufacturing costs 
+        const manufacturingCosts = await prisma.manufacturingCost.findMany({
+            select : {
+                name : true, 
+                id : true, 
+                cost : true
+            }
+        })
+        if(!production){
+            res.status(404).json({ message : 'Production record not found'})
+            return 
+        }
+        const manufacturingExpensesNotSelected = manufacturingCosts.filter(manufacturingCost => {
+            const hasManufacturing = production.manufaction_costs_items.find(itemsFromDb => itemsFromDb.manufacturing_cost_id === manufacturingCost.id)
+            if(hasManufacturing) return false
+            return true; 
+        })
+        const totalCost = production.transaction_items.reduce((init, sum) => init + Number(sum.cost), 0)
+        const otherExpenses = production.manufaction_costs_items.reduce((init, sum) => init + Number(sum.cost), 0)
+        const totalPairs = production.transaction_items.reduce((init, sum) => init + Number(sum.pending_quantity), 0)
+        const productionMetadata = {
+            manufacturingCosts : manufacturingExpensesNotSelected,
+            totalCost : totalCost + otherExpenses,
+            totalPairs, 
+            status : production.manufacturing_status
+        }
+        res.status(200).json(productionMetadata)
+    }catch(err){
+        console.log(err)
+        res.status(500).json({ message : 'Server error occurred'})
+    }
+}
 export async function validateProduction (req:Request, res:Response) {
     try{
         // sales order 

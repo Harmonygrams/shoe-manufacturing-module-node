@@ -13,16 +13,16 @@ const productSchema = Joi.object({
         cost : Joi.number().precision(2).min(0).messages({ 'number.min' : 'Cost must be equal or greater than 0', 'number.precision' : "Invalid cost price", 'any.required' : "Cost price required", 'number.base' : 'Invalid cost price'}),
     }).min(1).required().messages({'array.base' : 'Please select at least one size', 'any.required' : 'Please select at least one size', 'array.min' : 'Please select at least one size'})
 });
-
 const updateProductSchema = Joi.object({
-    name: Joi.string().optional(),
-    unitId: Joi.number().optional(),
-    sku : Joi.string().optional().allow(''),
+    id : Joi.string().required().messages({'number.base' : 'Please select unit'}),
+    name: Joi.string().required().messages({'any.required' : 'Product name required', 'string.empty' : 'Product name required'}),
+    unitId: Joi.number().optional().messages({'number.base' : 'Please select unit'}),
     description : Joi.string().allow(''),
-    sellingPrice: Joi.number().min(0).optional(),
-    openingStockDate : Joi.date().default(new Date()), 
-    openingStock : Joi.number().min(0).default(0),
-    costPrice: Joi.number().min(0).default(0),
+    sizes : Joi.array().items({
+        sizeId : Joi.number().required().messages({ 'number.required' : "Please select at least one size" }),
+        quantity : Joi.number().min(0).messages({ 'number.min' : 'Quantity must be equal or greater than 0', 'any.required' : 'Quantity required', 'number.base' : 'Invalid quantity'}), 
+        cost : Joi.number().precision(2).min(0).messages({ 'number.min' : 'Cost must be equal or greater than 0', 'number.precision' : "Invalid cost price", 'any.required' : "Cost price required", 'number.base' : 'Invalid cost price'}),
+    }).min(1).required().messages({'array.base' : 'Please select at least one size', 'any.required' : 'Please select at least one size', 'array.min' : 'Please select at least one size'})
 });
 
 export async function addProduct(req: Request, res: Response) {
@@ -197,7 +197,8 @@ export async function getProduct(req: Request, res: Response) {
                 unit: {
                     select: {
                         name: true,
-                        symbol: true
+                        symbol: true,
+                        id : true
                     }
                 },
                 product_sizes: {
@@ -289,7 +290,8 @@ export async function getProduct(req: Request, res: Response) {
                 })?.reduce((init, sum) => init + Number(sum.remaining_quantity), 0)
 
             return {
-                size: productSize.sizes?.name,
+                sizeName: productSize.sizes?.name,
+                sizeId: productSize.sizes?.id,
                 quantity,
                 cost : latestCostPrice,
                 transaction_summary: {
@@ -306,7 +308,9 @@ export async function getProduct(req: Request, res: Response) {
             name: product.name,
             description: product.description,
             selling_price: product.selling_price,
-            unit: product.unit,
+            unitId: product.unit?.id,
+            unitName : product.unit?.name,
+            unitSymbol : product.unit?.symbol,
             sizes: processedSizes,
             bill_of_materials: product.bom.map(bom => ({
                 date: bom.bom_date,
@@ -337,7 +341,7 @@ export async function updateProduct(req: Request, res: Response) {
         }
 
         // Validate request body
-        const { error, value } = productSchema.validate(req.body);
+        const { error, value } = updateProductSchema.validate(req.body);
         if (error) {
             res.status(400).json({ message: error.details[0].message });
             return;
@@ -406,6 +410,7 @@ export async function updateProduct(req: Request, res: Response) {
                     product_size_id: productSize.id,
                     transaction_id: transaction.id,
                     quantity: size.quantity,
+                    remaining_quantity : size.quantity,
                     cost: size.cost
                 };
             });

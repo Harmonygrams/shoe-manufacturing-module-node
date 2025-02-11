@@ -121,6 +121,7 @@ function addSalesOrder(req, res) {
 }
 function getSalesOrder(req, res) {
     return __awaiter(this, void 0, void 0, function* () {
+        var _a;
         try {
             const { id } = req.params;
             const getSale = yield prisma_1.prisma.transaction.findFirst({
@@ -133,6 +134,12 @@ function getSalesOrder(req, res) {
                 select: {
                     id: true,
                     transaction_date: true,
+                    customer: {
+                        select: {
+                            id: true,
+                        }
+                    },
+                    sale_status: true,
                     transaction_items: {
                         select: {
                             cost: true,
@@ -207,6 +214,8 @@ function getSalesOrder(req, res) {
             });
             const saleOrder = {
                 id: getSale === null || getSale === void 0 ? void 0 : getSale.id,
+                customerId: (_a = getSale === null || getSale === void 0 ? void 0 : getSale.customer) === null || _a === void 0 ? void 0 : _a.id,
+                status: getSale === null || getSale === void 0 ? void 0 : getSale.sale_status,
                 orderDate: getSale === null || getSale === void 0 ? void 0 : getSale.transaction_date,
                 products: getSale === null || getSale === void 0 ? void 0 : getSale.transaction_items.map(transactionItem => {
                     var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m;
@@ -317,5 +326,55 @@ function updateSalesOrders(req, res) {
     return __awaiter(this, void 0, void 0, function* () { });
 }
 function deleteSalesOrders(req, res) {
-    return __awaiter(this, void 0, void 0, function* () { });
+    return __awaiter(this, void 0, void 0, function* () {
+        try {
+            const { id } = req.params;
+            if (isNaN(Number(id))) {
+                res.status(400).json({ message: 'Invalid order ID' });
+                return;
+            }
+            yield prisma_1.prisma.$transaction((tx) => __awaiter(this, void 0, void 0, function* () {
+                // Check if order exists and get its status
+                const order = yield tx.transaction.findFirst({
+                    where: {
+                        id: Number(id),
+                        transaction_type: {
+                            in: ['sale', 'manufacturing']
+                        }
+                    },
+                    include: {
+                        transaction_items: true
+                    }
+                });
+                if (!order) {
+                    throw new Error('Order not found');
+                }
+                // Only allow deletion of pending orders
+                if (order.sale_status !== 'pending') {
+                    throw new Error('Only pending orders can be deleted');
+                }
+                // First delete transaction items
+                yield tx.transactionItems.deleteMany({
+                    where: {
+                        transaction_id: Number(id)
+                    }
+                });
+                // Then delete the main transaction
+                yield tx.transaction.delete({
+                    where: {
+                        id: Number(id)
+                    }
+                });
+            }));
+            res.status(200).json({ message: 'Order deleted successfully' });
+        }
+        catch (err) {
+            console.error('Error in deleteSalesOrders:', err);
+            if (err instanceof Error) {
+                res.status(400).json({ message: err.message });
+                return;
+            }
+            res.status(500).json({ message: 'Server error occurred while deleting order' });
+        }
+    });
 }

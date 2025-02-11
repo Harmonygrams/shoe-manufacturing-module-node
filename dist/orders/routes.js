@@ -11,4 +11,5 @@ exports.ordersRouter = router;
 router
     .post('/', controllers_1.addSalesOrder)
     .get('/', controllers_1.getSalesOrders)
-    .get('/:id', controllers_1.getSalesOrder);
+    .get('/:id', controllers_1.getSalesOrder)
+    .delete('/:id', controllers_1.deleteSalesOrders);

@@ -10,4 +10,7 @@ const router = express_1.default.Router();
 exports.purchaseRouter = router;
 router
     .post('/', controllers_1.addPurchase)
-    .get('/', controllers_1.getPurchases);
+    .get('/', controllers_1.getPurchases)
+    .get('/:id', controllers_1.getPurchase)
+    .put('/:id', controllers_1.editPurchase)
+    .delete('/:id', controllers_1.deletePurchase);

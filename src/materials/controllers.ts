@@ -4,7 +4,10 @@ import { prisma } from "../lib/prisma";
 
 // Validation Schemas
 const materialSchema = Joi.object({
-    name: Joi.string().required(),
+    name: Joi.string().required().messages({
+        'string.empty': 'Cost name is required',
+        'any.required': 'Cost name is required'
+    }),
     description: Joi.string().allow("").optional(),
     costPrice: Joi.number()
         .precision(2)
@@ -41,12 +44,35 @@ const materialSchema = Joi.object({
 });
 
 const updateMaterialSchema = Joi.object({
-    name: Joi.string(),
+    name: Joi.string().optional(),
     description: Joi.string().allow("").optional(),
-    costPrice: Joi.number().integer().min(0),
-    unitId: Joi.number().integer().min(1),
-    openingStock: Joi.number().integer().min(0),
-    reorderPoint: Joi.number().integer().min(0),
+    unitName : Joi.string().allow("").optional(),
+    costPrice: Joi.number()
+        .precision(2)
+        .min(0)
+        .messages({
+            'number.base': 'The value must be a valid number.',
+            'number.positive': 'The number must be positive.',
+            'number.precision': 'The number must have at most 2 decimal places.',
+        }).optional(),
+    unitId: Joi.number()
+        .integer()
+        .min(1)
+        .messages({'number.base' : 'Please select unit'})
+        .optional(),
+    openingStock: Joi.number()
+        .precision(2)
+        .min(0)
+        .messages({
+            'number.base': 'Opening stock must be a valid number.',
+            'number.precision': 'The number must have at most 2 decimal places.',
+        }).optional(),
+    reorderPoint: Joi.number()
+        .precision(2)
+        .min(0)
+        .messages({
+            'number.base': 'Reorder point must be a valid number.',
+        }).optional(),
 }).min(1);
 
 // Add a new material
@@ -171,6 +197,59 @@ export async function getMaterials(req: Request, res: Response) {
     }
 }
 
+export async function getMaterial(req:Request, res:Response){
+    try { 
+        const { id } = req.params; 
+        const idValidation = Joi.number().integer().positive().validate(parseInt(id));
+        if(idValidation.error) {
+            res.status(400).json({ message: "Invalid ID format" });
+            return 
+        }
+        const fetchMaterials = await prisma.rawMaterials.findFirst({
+            where : {
+                id : parseInt(id)
+            }, 
+            select : {
+                name : true, 
+                description : true, 
+                reorder_point : true, 
+                unit : {
+                    select : {
+                        name : true, 
+                        id : true, 
+                    }
+                }, 
+                transactionItems : {
+                    where : {
+                        transactions : {
+                            transaction_type : 'opening_stock',
+                        }
+                    }, 
+                    
+                    select : {
+                        quantity : true, 
+                        cost : true, 
+                    }
+                }
+            }
+        })
+        if(!fetchMaterials){
+            res.status(404).json({ message : 'Raw material not found'})
+            return 
+        }
+        const response = {
+            name : fetchMaterials.name, 
+            description : fetchMaterials.description, 
+            reorderPoint : fetchMaterials.reorder_point, 
+            unitId : fetchMaterials.unit?.id,
+            unitName : fetchMaterials.unit?.name, 
+            openingStock : fetchMaterials.transactionItems[0].quantity, 
+            costPrice : fetchMaterials.transactionItems[0].cost, 
+        }
+        res.status(200).json(response)
+    }catch(err){
+    }
+}
 // Update a material
 export async function updateMaterial(req: Request, res: Response) {
     try {
@@ -188,12 +267,44 @@ export async function updateMaterial(req: Request, res: Response) {
             return 
         }
 
-        const material = await prisma.rawMaterials.update({
+        const { name, description, unitName, costPrice, unitId, openingStock, reorderPoint } = value;
+
+        // Update the material
+        const updatedMaterial = await prisma.rawMaterials.update({
             where: { id: parseInt(id) },
-            data: { ...value, updated_at: new Date() },
+            data: {
+                name,
+                description,
+                reorder_point: reorderPoint,
+                unit_id: unitId,
+                updated_at: new Date()
+            }
         });
 
-        res.status(200).json({ message: "Material updated successfully", material });
+        // Update the transaction item if openingStock or costPrice is provided
+        if (openingStock !== undefined || costPrice !== undefined) {
+            const transactionItem = await prisma.transactionItems.findFirst({
+                where: {
+                    material_id: parseInt(id),
+                    transactions: {
+                        transaction_type: 'opening_stock'
+                    }
+                }
+            });
+
+            if (transactionItem) {
+                await prisma.transactionItems.update({
+                    where: { id: transactionItem.id },
+                    data: {
+                        quantity: openingStock !== undefined ? openingStock : transactionItem.quantity,
+                        remaining_quantity: openingStock !== undefined ? openingStock : transactionItem.quantity,
+                        cost: costPrice !== undefined ? costPrice : transactionItem.cost
+                    }
+                });
+            }
+        }
+
+        res.status(200).json({ message: "Material updated successfully", material: updatedMaterial });
     } catch (err) {
         console.error("Error in updateMaterial:", err);
         res.status(500).json({ message: "Server error" });

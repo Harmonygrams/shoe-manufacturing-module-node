@@ -21,7 +21,6 @@ const schema_1 = require("../configs/schema");
 const joi_1 = __importDefault(require("joi"));
 const manufacturingCostSchema = joi_1.default.object({
     name: joi_1.default.string().required().messages({
-        'string.empty': 'Cost name is required',
         'any.required': 'Cost name is required'
     }),
     amount: schema_1.validateSchema.cost(),
@@ -124,19 +123,10 @@ function deleteManufacturingCost(req, res) {
             }
             // Check if cost exists and is being used in any transactions
             const cost = yield prisma_1.prisma.manufacturingCost.findUnique({
-                where: { id: Number(id) },
-                include: {
-                    transactions: {}
-                }
+                where: { id: Number(id) }
             });
             if (!cost) {
                 res.status(404).json({ message: 'Manufacturing cost not found' });
-                return;
-            }
-            if (cost.transactions && cost.transactions) {
-                res.status(400).json({
-                    message: 'Cannot delete manufacturing cost that has been used in transactions'
-                });
                 return;
             }
             yield prisma_1.prisma.manufacturingCost.delete({

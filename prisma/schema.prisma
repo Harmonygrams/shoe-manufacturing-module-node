@@ -101,23 +101,31 @@ model Transaction {
   transaction_type TransactionType
   customer_id Int? //Foreign key for customer
   supplier_id Int?
+  order_id Int?
   payment_method String?
   transaction_date DateTime
   sale_status SalesStatus?
   manufacturing_status ManufacturingStatus?
-  manufaction_costs ManufacturingCost[]
+  manufaction_costs_items ManufacturingCostItems[]
   transaction_items TransactionItems[]
   customer Customer? @relation(fields: [customer_id], references: [id])
   supplier Supplier? @relation(fields: [supplier_id], references: [id])
   created_at DateTime @default(now()) 
   updated_at DateTime @updatedAt
 }
+model ManufacturingCostItems {
+  id Int @id @default(autoincrement())
+  cost Decimal @default(0.0)
+  manufacturing_cost_id Int?
+  transaction_id Int?
+  manufacturing_costs ManufacturingCost? @relation(fields: [manufacturing_cost_id], references: [id])
+  transactions Transaction? @relation(fields: [transaction_id], references: [id], onDelete: Cascade)
+}
 model ManufacturingCost {
   id Int @id @default(autoincrement())
   name String
   cost Decimal @default(0.0)
-  transaction_id Int?
-  transactions Transaction? @relation(fields: [transaction_id], references: [id])
+  ManufacturingCostItems ManufacturingCostItems[]
 }
 
 model TransactionItems {
@@ -130,7 +138,7 @@ model TransactionItems {
   product_size_id Int? //Foreign key for product 
   color_id Int?
   transaction_id Int
-  transactions Transaction? @relation(fields: [transaction_id], references: [id])
+  transactions Transaction? @relation(fields: [transaction_id], references: [id], onDelete: Cascade)
   product_size ProductSize? @relation(fields: [product_size_id], references: [id])
   raw_material RawMaterials? @relation(fields: [material_id], references: [id])
   color Color? @relation(fields: [color_id], references: [id])

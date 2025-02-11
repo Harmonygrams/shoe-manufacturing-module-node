@@ -11,6 +11,6 @@ exports.materialRouter = router;
 router
     .post('/', controllers_1.addMaterial)
     .get('/', controllers_1.getMaterials)
-    // .get('/:id', getMaterial)
-    .get('/:id', controllers_1.updateMaterial)
+    .get('/:id', controllers_1.getMaterial)
+    .put('/:id', controllers_1.updateMaterial)
     .delete('/:id', controllers_1.deleteMaterial);

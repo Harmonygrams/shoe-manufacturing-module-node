@@ -147,6 +147,12 @@ export async function getSalesOrder (req : Request, res: Response) {
             select : {
                 id : true,
                 transaction_date : true, 
+                customer : {
+                    select : {
+                        id : true,
+                    }
+                },
+                sale_status : true,
                 transaction_items : {
                     select : {
                         cost : true, 
@@ -222,6 +228,8 @@ export async function getSalesOrder (req : Request, res: Response) {
         })
     const saleOrder = {
         id: getSale?.id,
+        customerId : getSale?.customer?.id,
+        status : getSale?.sale_status,
         orderDate: getSale?.transaction_date, 
         products : getSale?.transaction_items.map(transactionItem => ({
                 productId : transactionItem.product_size?.products?.id,
@@ -319,4 +327,61 @@ export async function getSalesOrders (req : Request, res: Response) {
     }
 }
 export async function updateSalesOrders (req : Request, res: Response) {}
-export async function deleteSalesOrders (req : Request, res: Response) {}
+
+export async function deleteSalesOrders(req: Request, res: Response) {
+    try {
+        const { id } = req.params;
+
+        if (isNaN(Number(id))) {
+            res.status(400).json({ message: 'Invalid order ID' });
+            return 
+        }
+
+        await prisma.$transaction(async (tx) => {
+            // Check if order exists and get its status
+            const order = await tx.transaction.findFirst({
+                where: {
+                    id: Number(id),
+                    transaction_type: {
+                        in: ['sale', 'manufacturing']
+                    }
+                },
+                include: {
+                    transaction_items: true
+                }
+            });
+
+            if (!order) {
+                throw new Error('Order not found');
+            }
+
+            // Only allow deletion of pending orders
+            if (order.sale_status !== 'pending') {
+                throw new Error('Only pending orders can be deleted');
+            }
+
+            // First delete transaction items
+            await tx.transactionItems.deleteMany({
+                where: {
+                    transaction_id: Number(id)
+                }
+            });
+
+            // Then delete the main transaction
+            await tx.transaction.delete({
+                where: {
+                    id: Number(id)
+                }
+            });
+        });
+
+        res.status(200).json({ message: 'Order deleted successfully' });
+    } catch (err) {
+        console.error('Error in deleteSalesOrders:', err);
+        if (err instanceof Error) {
+            res.status(400).json({ message: err.message });
+            return 
+        }
+        res.status(500).json({ message: 'Server error occurred while deleting order' });
+    }
+}

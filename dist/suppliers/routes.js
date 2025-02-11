@@ -10,4 +10,5 @@ const router = express_1.default.Router();
 exports.supplierRouter = router;
 router
     .post('/', controllers_1.addSupplier)
-    .get('/', controllers_1.getSuppliers);
+    .get('/', controllers_1.getSuppliers)
+    .get('/:id', controllers_1.getSupplier);

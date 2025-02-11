@@ -53,7 +53,47 @@ function addSupplier(req, res) {
     });
 }
 function getSupplier(req, res) {
-    return __awaiter(this, void 0, void 0, function* () { });
+    return __awaiter(this, void 0, void 0, function* () {
+        try {
+            const { id } = req.params;
+            if (!id) {
+                res.status(400).json({ message: "Invalid supplier id " });
+                return;
+            }
+            const fetchSupplier = yield prisma_1.prisma.supplier.findFirst({
+                where: {
+                    id: parseInt(id)
+                },
+                select: {
+                    supplier_type: true,
+                    business_name: true,
+                    first_name: true,
+                    last_name: true,
+                    phone: true,
+                    email: true,
+                    address: true,
+                }
+            });
+            if (!fetchSupplier) {
+                res.status(404).json({ message: "Supplier not found " });
+                return;
+            }
+            const response = {
+                supplierType: fetchSupplier.supplier_type,
+                businessName: fetchSupplier.business_name,
+                firstName: fetchSupplier.first_name,
+                lastName: fetchSupplier.last_name,
+                phone: fetchSupplier.phone,
+                email: fetchSupplier.email,
+                address: fetchSupplier.address,
+            };
+            res.status(200).json(response);
+        }
+        catch (err) {
+            console.log(err);
+            res.status(500).json({ message: 'Server error' });
+        }
+    });
 }
 function getSuppliers(req, res) {
     return __awaiter(this, void 0, void 0, function* () {

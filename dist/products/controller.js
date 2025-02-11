@@ -32,14 +32,15 @@ const productSchema = joi_1.default.object({
     }).min(1).required().messages({ 'array.base': 'Please select at least one size', 'any.required': 'Please select at least one size', 'array.min': 'Please select at least one size' })
 });
 const updateProductSchema = joi_1.default.object({
-    name: joi_1.default.string().optional(),
-    unitId: joi_1.default.number().optional(),
-    sku: joi_1.default.string().optional().allow(''),
+    id: joi_1.default.string().required().messages({ 'number.base': 'Please select unit' }),
+    name: joi_1.default.string().required().messages({ 'any.required': 'Product name required', 'string.empty': 'Product name required' }),
+    unitId: joi_1.default.number().optional().messages({ 'number.base': 'Please select unit' }),
     description: joi_1.default.string().allow(''),
-    sellingPrice: joi_1.default.number().min(0).optional(),
-    openingStockDate: joi_1.default.date().default(new Date()),
-    openingStock: joi_1.default.number().min(0).default(0),
-    costPrice: joi_1.default.number().min(0).default(0),
+    sizes: joi_1.default.array().items({
+        sizeId: joi_1.default.number().required().messages({ 'number.required': "Please select at least one size" }),
+        quantity: joi_1.default.number().min(0).messages({ 'number.min': 'Quantity must be equal or greater than 0', 'any.required': 'Quantity required', 'number.base': 'Invalid quantity' }),
+        cost: joi_1.default.number().precision(2).min(0).messages({ 'number.min': 'Cost must be equal or greater than 0', 'number.precision': "Invalid cost price", 'any.required': "Cost price required", 'number.base': 'Invalid cost price' }),
+    }).min(1).required().messages({ 'array.base': 'Please select at least one size', 'any.required': 'Please select at least one size', 'array.min': 'Please select at least one size' })
 });
 function addProduct(req, res) {
     return __awaiter(this, void 0, void 0, function* () {
@@ -200,6 +201,7 @@ function getProducts(req, res) {
 }
 function getProduct(req, res) {
     return __awaiter(this, void 0, void 0, function* () {
+        var _a, _b, _c;
         try {
             const { id } = req.params;
             // Validate ID is a number
@@ -219,7 +221,8 @@ function getProduct(req, res) {
                     unit: {
                         select: {
                             name: true,
-                            symbol: true
+                            symbol: true,
+                            id: true
                         }
                     },
                     product_sizes: {
@@ -286,7 +289,7 @@ function getProduct(req, res) {
             }
             // Process product sizes and their transactions
             const processedSizes = product.product_sizes.map(productSize => {
-                var _a, _b;
+                var _a, _b, _c;
                 let totalOpeningStock = 0;
                 let totalPurchases = 0;
                 let totalSales = 0;
@@ -310,7 +313,8 @@ function getProduct(req, res) {
                     return quantityOfThisProduct.length;
                 })) === null || _a === void 0 ? void 0 : _a.reduce((init, sum) => init + Number(sum.remaining_quantity), 0);
                 return {
-                    size: (_b = productSize.sizes) === null || _b === void 0 ? void 0 : _b.name,
+                    sizeName: (_b = productSize.sizes) === null || _b === void 0 ? void 0 : _b.name,
+                    sizeId: (_c = productSize.sizes) === null || _c === void 0 ? void 0 : _c.id,
                     quantity,
                     cost: latestCostPrice,
                     transaction_summary: {
@@ -326,7 +330,9 @@ function getProduct(req, res) {
                 name: product.name,
                 description: product.description,
                 selling_price: product.selling_price,
-                unit: product.unit,
+                unitId: (_a = product.unit) === null || _a === void 0 ? void 0 : _a.id,
+                unitName: (_b = product.unit) === null || _b === void 0 ? void 0 : _b.name,
+                unitSymbol: (_c = product.unit) === null || _c === void 0 ? void 0 : _c.symbol,
                 sizes: processedSizes,
                 bill_of_materials: product.bom.map(bom => ({
                     date: bom.bom_date,
@@ -356,7 +362,7 @@ function updateProduct(req, res) {
                 return;
             }
             // Validate request body
-            const { error, value } = productSchema.validate(req.body);
+            const { error, value } = updateProductSchema.validate(req.body);
             if (error) {
                 res.status(400).json({ message: error.details[0].message });
                 return;
@@ -415,6 +421,7 @@ function updateProduct(req, res) {
                         product_size_id: productSize.id,
                         transaction_id: transaction.id,
                         quantity: size.quantity,
+                        remaining_quantity: size.quantity,
                         cost: size.cost
                     };
                 });

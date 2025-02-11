@@ -1,5 +1,6 @@
 import { Request, Response } from 'express'
 import { prisma } from "../lib/prisma";
+import Joi from 'joi';
 
 export async function addSupplier (req: Request, res : Response) {
     try {
@@ -36,7 +37,46 @@ export async function addSupplier (req: Request, res : Response) {
     }
     
 }
-export async function getSupplier (req: Request, res : Response) {}
+export async function getSupplier (req: Request, res : Response) {
+    try { 
+        const { id }  = req.params; 
+        if(!id){
+            res.status(400).json({ message : "Invalid supplier id "})
+            return
+        }
+        const fetchSupplier = await prisma.supplier.findFirst({
+            where : {
+                id : parseInt(id)
+            }, 
+            select : {
+                supplier_type : true, 
+                business_name : true, 
+                first_name : true, 
+                last_name : true, 
+                phone : true, 
+                email : true, 
+                address : true, 
+            }
+        })
+        if(!fetchSupplier){
+            res.status(404).json({ message : "Supplier not found "})
+            return;
+        }
+        const response = {
+            supplierType : fetchSupplier.supplier_type, 
+            businessName : fetchSupplier.business_name, 
+            firstName : fetchSupplier.first_name, 
+            lastName : fetchSupplier.last_name, 
+            phone : fetchSupplier.phone,
+            email : fetchSupplier.email,
+            address : fetchSupplier.address,
+        }
+        res.status(200).json(response)
+    }catch(err){
+        console.log(err)
+        res.status(500).json({ message: 'Server error' })
+    }
+}
 export async function getSuppliers (req: Request, res : Response) {
     try {
         const fetchSuppliers = await prisma.supplier.findMany({
